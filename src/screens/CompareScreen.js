@@ -1,23 +1,19 @@
 /**
  * CompareScreen.js
- * Fase 1 (Compare 4 status) + Fase 4 (Push/Pull) digabung di sini -
- * alurnya memang nyambung: lihat status dulu, baru pilih aksi sync.
- *
- * Force Push WAJIB ketik ulang "YA" persis (bukan cuma tap tombol) -
- * dipertahankan dari CLI asli (Bagian 6.3 dokumen konsep: pengaman
- * kritikal, bukan sekadar dialog Ya/Tidak).
- *
- * Pull yang diblokir karena working tree kotor: lihat catatan lengkap di
- * syncRepo.js kenapa (isomorphic-git gak punya "git stash").
+ * Fase 1 (Compare 4 status) - Push/Pull/Force Push logic sekarang di
+ * useSyncActions.js (dipakai bareng sama menu Push/Pull yang berdiri
+ * sendiri - permintaan Zen: pisahin kayak CLI). Compare tetap nunjukin
+ * shortcut ke aksi yang direkomendasikan sesuai status, tapi Push/Pull
+ * juga bisa diakses independen dari sini lewat Dashboard.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { Button, HeroCard, Card, StatusBadge, ErrorBanner, InfoBanner } from '../components/UI';
-import { LoadingModal, appAlert } from '../components/AppModals';
+import { LoadingModal } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
-import { pushRepo, pullRepo, forcePushRepo, confirmStashSafe, discardAppliedStash } from '../git/syncRepo';
+import { useSyncActions } from '../hooks/useSyncActions';
 
 const RECOMMENDATION = {
   synced: 'Tidak ada aksi diperlukan.',
@@ -30,10 +26,7 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [busyLabel, setBusyLabel] = useState('Memproses...');
-  const [forcePushMode, setForcePushMode] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
+  const sync = useSyncActions(repo, token, author, onOpenWorkingTree);
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -52,104 +45,6 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
     run();
   }, [run]);
 
-  const handlePull = async () => {
-    setBusy(true);
-    setBusyLabel('Mengambil (pull)...');
-    try {
-      const res = await pullRepo(repo.dir, repo.defaultBranch, token, author);
-      setBusy(false);
-
-      if (res.error && !res.ok) {
-        // Pull gagal total sebelum apply - stash (kalau ada) masih utuh, belum disentuh.
-        appAlert('Pull Gagal', res.error);
-        return;
-      }
-
-      if (res.stashKept) {
-        // Ada auto-stash yang perlu diverifikasi user - stash SENGAJA belum
-        // dihapus (lihat catatan di syncRepo.js kenapa: isomorphic-git gak
-        // bisa deteksi conflict pas apply, jadi stash dijadiin jaring pengaman).
-        appAlert(
-          res.stashApplied ? 'Pull Berhasil' : 'Pull Berhasil, Tapi...',
-          res.stashApplied
-            ? 'Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.'
-            : res.error,
-          res.stashApplied
-            ? [
-                {
-                  text: 'Ada Masalah, Buang Hasilnya',
-                  style: 'cancel',
-                  onPress: async () => {
-                    await discardAppliedStash(repo.dir);
-                    appAlert('Dibatalkan', 'Hasil terapan dibuang, kondisi kembali ke abis pull. Perubahan lokal kamu tetap aman tersimpan di stash, coba lagi nanti.');
-                  },
-                },
-                {
-                  text: 'Sudah Aman, Hapus Cadangan',
-                  style: 'primary',
-                  onPress: async () => {
-                    const result = await confirmStashSafe(repo.dir, res.stashMessage);
-                    if (result.dropped) {
-                      appAlert('Cadangan Dihapus', 'Stash otomatis sudah dibersihkan.');
-                    } else {
-                      appAlert('Stash Tidak Ditemukan', 'Stash-nya udah gak ada di daftar (mungkin sudah dihapus dari tempat lain) - gak ada yang dihapus, aman.');
-                    }
-                  },
-                },
-              ]
-            : [{ text: 'Mengerti', style: 'primary' }]
-        );
-        await run();
-        return;
-      }
-
-      appAlert('Pull Berhasil', 'Perubahan terbaru dari GitHub sudah digabung.');
-      await run();
-    } catch (e) {
-      setBusy(false);
-      appAlert('Pull Gagal', e.message);
-    }
-  };
-
-  const handlePush = async () => {
-    setBusy(true);
-    setBusyLabel('Mengirim (push)...');
-    try {
-      const res = await pushRepo(repo.dir, repo.defaultBranch, token);
-      setBusy(false);
-      if (res.rejected) {
-        // BUGFIX yang sama seperti CLI: dulu mentok kalau ditolak, sekarang
-        // langsung ditawarkan Pull dari sini.
-        appAlert('Push ditolak', 'Ada perubahan baru di GitHub. Pull dulu, baru coba Push lagi?', [
-          { text: 'Batal', style: 'cancel' },
-          { text: 'Pull Sekarang', style: 'primary', onPress: handlePull },
-        ]);
-        return;
-      }
-      appAlert('Push Berhasil', `Repository: ${repo.fullName}\nBranch: ${repo.defaultBranch}`);
-      await run();
-    } catch (e) {
-      setBusy(false);
-      appAlert('Push Gagal', e.message);
-    }
-  };
-
-  const handleForcePushConfirmed = async () => {
-    setForcePushMode(false);
-    setConfirmText('');
-    setBusy(true);
-    setBusyLabel('Force Push...');
-    try {
-      await forcePushRepo(repo.dir, repo.defaultBranch, token);
-      setBusy(false);
-      appAlert('Force Push Berhasil', 'Riwayat commit di GitHub sudah ditimpa dengan riwayat lokal.');
-      await run();
-    } catch (e) {
-      setBusy(false);
-      appAlert('Force Push Gagal', e.message);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <HeroCard eyebrow="Compare Repository" title={repo.fullName} subtitle={`Branch ${repo.defaultBranch}`} />
@@ -167,21 +62,22 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
             <Text style={styles.recText}>{RECOMMENDATION[result.status]}</Text>
 
             <View style={styles.actions}>
-              {result.status === 'ahead' && <Button title="Push" onPress={handlePush} disabled={busy} />}
-              {result.status === 'behind' && <Button title="Pull" onPress={handlePull} disabled={busy} />}
+              {result.status === 'ahead' && <Button title="Push" onPress={() => sync.doPush(run)} disabled={sync.busy} />}
+              {result.status === 'behind' && <Button title="Pull" onPress={() => sync.doPull(run)} disabled={sync.busy} />}
               {result.status === 'diverged' && (
                 <>
-                  <Button title="Fetch Ulang" variant="secondary" onPress={run} disabled={busy} />
-                  <Button title="Force Push (Berbahaya)" variant="danger" onPress={() => setForcePushMode(true)} disabled={busy} />
+                  <Button title="Pull" variant="secondary" onPress={() => sync.doPull(run)} disabled={sync.busy} />
+                  <Button title="Fetch Ulang" variant="secondary" onPress={run} disabled={sync.busy} />
+                  <Button title="Force Push (Berbahaya)" variant="danger" onPress={sync.startForcePush} disabled={sync.busy} />
                 </>
               )}
-              <Button title="Refresh" variant="secondary" onPress={run} disabled={busy} />
+              <Button title="Refresh" variant="secondary" onPress={run} disabled={sync.busy} />
             </View>
           </>
         ) : null}
       </Card>
 
-      {forcePushMode ? (
+      {sync.forcePushMode ? (
         <Card>
           <InfoBanner>
             Force Push akan MENIMPA riwayat commit di GitHub dengan riwayat lokal. Perubahan orang lain yang
@@ -191,27 +87,20 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
             style={styles.confirmInput}
             placeholder='Ketik "YA"'
             placeholderTextColor={COLORS.inkFaint}
-            value={confirmText}
-            onChangeText={setConfirmText}
+            value={sync.confirmText}
+            onChangeText={sync.setConfirmText}
             autoCapitalize="characters"
           />
           <View style={styles.actions}>
-            <Button title="Lanjutkan Force Push" variant="danger" onPress={handleForcePushConfirmed} disabled={confirmText !== 'YA'} />
-            <Button
-              title="Batal"
-              variant="secondary"
-              onPress={() => {
-                setForcePushMode(false);
-                setConfirmText('');
-              }}
-            />
+            <Button title="Lanjutkan Force Push" variant="danger" onPress={() => sync.confirmForcePush(run)} disabled={sync.confirmText !== 'YA'} />
+            <Button title="Batal" variant="secondary" onPress={sync.cancelForcePush} />
           </View>
         </Card>
       ) : null}
 
       <Button title="Kembali" variant="secondary" onPress={onBack} />
 
-      <LoadingModal visible={busy} label={busyLabel} icon="refresh-cw" />
+      <LoadingModal visible={sync.busy} label={sync.busyLabel} icon="refresh-cw" />
     </View>
   );
 }

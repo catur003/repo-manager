@@ -15,6 +15,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import StorageManagerScreen from './src/screens/StorageManagerScreen';
 import UploadScreen from './src/screens/UploadScreen';
 import WorkingTreeScreen from './src/screens/WorkingTreeScreen';
+import SyncScreen from './src/screens/SyncScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { AppAlertHost } from './src/components/AppModals';
@@ -45,6 +46,7 @@ function AppShell() {
   const [storageManagerOpen, setStorageManagerOpen] = useState(false);
   const [uploadRepo, setUploadRepo] = useState(null); // repo yang lagi dibuka buat Upload, null = tidak ada overlay
   const [workingTreeRepo, setWorkingTreeRepo] = useState(null); // repo yang lagi dibuka buat Working Tree/Commit
+  const [syncScreen, setSyncScreen] = useState(null); // { repo, mode: 'push'|'pull' } | null
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -74,6 +76,7 @@ function AppShell() {
     setStorageManagerOpen(false);
     setUploadRepo(null);
     setWorkingTreeRepo(null);
+    setSyncScreen(null);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
@@ -124,6 +127,14 @@ function AppShell() {
           <UploadScreen repo={uploadRepo} onBack={() => setUploadRepo(null)} />
         ) : workingTreeRepo ? (
           <WorkingTreeScreen repo={workingTreeRepo} author={{ name: profile.name, email: profile.email }} onBack={() => setWorkingTreeRepo(null)} />
+        ) : syncScreen ? (
+          <SyncScreen
+            repo={syncScreen.repo}
+            mode={syncScreen.mode}
+            token={token}
+            author={{ name: profile.name, email: profile.email }}
+            onBack={() => setSyncScreen(null)}
+          />
         ) : tab === 'dashboard' ? (
           <DashboardScreen
             profile={profile}
@@ -133,6 +144,7 @@ function AppShell() {
             onOpenStorageManager={() => setStorageManagerOpen(true)}
             onOpenUpload={setUploadRepo}
             onOpenWorkingTree={setWorkingTreeRepo}
+            onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
           />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
@@ -145,7 +157,7 @@ function AppShell() {
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

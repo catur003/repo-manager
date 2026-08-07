@@ -8,7 +8,7 @@
  *    Terakhir Push/Pull, Tanggal & Jam). Lihat repoStatus.js buat detail
  *    tiap field & kenapa Ahead/Behind dihitung offline.
  *
- * 2. Grid "Aksi Cepat" - peta ke-13 menu "nyata" hasil pemetaan 15 menu
+ * 2. Grid "Aksi Cepat" - peta menu "nyata" hasil pemetaan 15 menu
  *    CLI asli (2 di antaranya, Cek Update & Log Debug, sudah diputuskan
  *    gak jadi menu terpisah - lihat komentar di menuTiles). Tile yang
  *    fiturnya belum dibangun tetap bisa di-tap, kasih tahu fase-nya lewat
@@ -31,7 +31,7 @@ function soonAlert(fase, nama) {
   appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -69,10 +69,13 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       ]
     : [];
 
-  // 13 menu "nyata" hasil pemetaan dari 15 menu CLI asli. Cek Update
+  // Menu "nyata" hasil pemetaan dari 15 menu CLI asli. Cek Update
   // (diganti mekanisme Play Store) dan Log Debug (digabung ke Log
-  // Aktivitas/Export Debug Log) sudah gak jadi menu terpisah - makanya
-  // dari 15 tinggal 13. Urutan ngikutin urutan menu CLI aslinya.
+  // Aktivitas/Export Debug Log) sudah gak jadi menu terpisah. Push dan
+  // Pull SENGAJA dipisah jadi 2 tile (bukan digabung "Push & Pull")
+  // sejak 7 Agustus 2026 - permintaan Zen biar sama kayak CLI, dua-duanya
+  // bisa dipanggil kapan pun terlepas dari status Compare. Urutan
+  // ngikutin urutan menu CLI aslinya.
   const menuTiles = [
     { icon: 'github', label: 'Repository (GitHub)', onPress: () => onNavigateTab('github') },
     { icon: 'folder', label: 'Local Repos', onPress: () => onNavigateTab('local') },
@@ -88,9 +91,14 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       onPress: () => (active ? onOpenWorkingTree(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
     {
-      icon: 'refresh-cw',
-      label: 'Push & Pull',
-      onPress: () => (active ? onOpenCompare(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+      icon: 'upload-cloud',
+      label: 'Push',
+      onPress: () => (active ? onOpenSync(active, 'push') : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
+    {
+      icon: 'download-cloud',
+      label: 'Pull',
+      onPress: () => (active ? onOpenSync(active, 'pull') : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
     { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },

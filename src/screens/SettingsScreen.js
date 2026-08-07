@@ -6,14 +6,40 @@
  * delete/force push, identitas commit, dst - lihat dokumen konsep Bagian
  * 4.9) menyusul di Fase 8, layar ini jadi fondasinya supaya tidak perlu
  * bongkar struktur tab lagi nanti.
+ *
+ * TAMBAHAN SEMENTARA (7 Agustus 2026): "Log Error (Sementara)" di bawah -
+ * versi kecil dari "Export Debug Log" yang semestinya baru ada di Fase 8.
+ * Dibikin cepat sekarang cuma buat bantu debug bug clone yang lagi
+ * ditelusuri (supaya bisa lihat error asli tanpa pasang device ke
+ * komputer/baca Metro log manual). PENGINGAT: cabut/ganti bagian ini
+ * begitu layar "Log Aktivitas" + "Export Debug Log" versi beneran di
+ * Fase 8 dibangun, supaya gak ada 2 cara beda buat hal yang sama.
  */
 
-import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, StyleSheet, ScrollView, Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Button, Card, SectionTitle } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
+import { exportDebugBundle } from '../logging/logger';
 
 export default function SettingsScreen({ profile, onLogout }) {
+  const [log, setLog] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleShowLog = async () => {
+    setLoading(true);
+    const bundle = await exportDebugBundle();
+    setLog(bundle || '(Kosong - belum ada error/debug log tercatat.)');
+    setLoading(false);
+  };
+
+  const handleCopy = async () => {
+    if (!log) return;
+    await Clipboard.setStringAsync(log);
+    Alert.alert('Disalin', 'Log sudah disalin ke clipboard.');
+  };
+
   return (
     <View style={styles.container}>
       <SectionTitle>Akun</SectionTitle>
@@ -24,6 +50,23 @@ export default function SettingsScreen({ profile, onLogout }) {
       </Card>
 
       <Button title="Logout" onPress={onLogout} variant="secondary" />
+
+      <SectionTitle style={{ marginTop: SPACING.lg }}>Log Error (Sementara)</SectionTitle>
+      <Card>
+        <Text style={styles.helperText}>
+          Tombol debug sementara - buat lihat pesan error asli (mis. saat clone gagal), sebelum layar
+          "Log Aktivitas" versi lengkap dibangun di Fase 8. Token/kredensial sudah disamarkan otomatis.
+        </Text>
+        <Button title={loading ? 'Memuat...' : 'Tampilkan Log Error'} onPress={handleShowLog} variant="secondary" disabled={loading} />
+        {log ? (
+          <>
+            <ScrollView style={styles.logBox} nestedScrollEnabled>
+              <Text selectable style={styles.logText}>{log}</Text>
+            </ScrollView>
+            <Button title="Salin ke Clipboard" onPress={handleCopy} variant="secondary" />
+          </>
+        ) : null}
+      </Card>
     </View>
   );
 }
@@ -33,4 +76,7 @@ const styles = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 10 },
   name: { fontSize: 17, fontWeight: '700', color: COLORS.ink },
   login: { fontSize: 13, color: COLORS.inkMuted, marginTop: 2 },
+  helperText: { fontSize: 12, color: COLORS.inkMuted, marginBottom: SPACING.sm, lineHeight: 17 },
+  logBox: { maxHeight: 260, backgroundColor: COLORS.bg, borderRadius: 10, padding: SPACING.sm, marginTop: SPACING.sm, marginBottom: SPACING.sm },
+  logText: { fontSize: 11, color: COLORS.ink, fontFamily: 'monospace' },
 });

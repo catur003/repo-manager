@@ -149,7 +149,6 @@ export default function StorageManagerScreen({ onBack }) {
           renderItem={({ item }) => (
             <View style={styles.pillCard}>
               <PillRow
-                icon="📁"
                 tone={item.unpushed ? 'accent' : 'default'}
                 label={item.fullName}
                 sublabel={`${formatSize(item.sizeBytes / 1024)} · dibuka ${timeAgo(item.lastOpenedAt)}`}
@@ -163,12 +162,11 @@ export default function StorageManagerScreen({ onBack }) {
         />
       )}
 
-      {/* Tombol refresh mengambang - gaya cluster bulat kanan-bawah di
-          File Viewer zenvps (permintaan Zen: "storage managernya jadi
-          kayak zen vps"). */}
+      {/* Tombol refresh - teks biasa, bukan simbol/icon (keputusan Zen:
+          jangan pernah pake icon). */}
       {!loading ? (
         <Pressable onPress={load} style={styles.fab} hitSlop={8}>
-          <Text style={styles.fabIcon}>⟳</Text>
+          <Text style={styles.fabText}>Refresh</Text>
         </Pressable>
       ) : null}
     </View>
@@ -216,9 +214,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: SPACING.lg,
     bottom: SPACING.lg,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.pill,
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
@@ -230,5 +228,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
-  fabIcon: { fontSize: 22, color: COLORS.accent },
+  fabText: { fontSize: 13, fontWeight: '700', color: COLORS.accent },
 });

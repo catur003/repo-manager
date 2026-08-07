@@ -138,13 +138,14 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
         renderItem={({ item }) => (
           <View style={styles.pillCard}>
             <PillRow
-              icon="📦"
               tone={item.id === activeId ? 'accent' : 'default'}
               label={item.fullName}
               sublabel={`${item.defaultBranch} · dibuka ${timeAgo(item.lastOpenedAt)}${item.id === activeId ? ' · Aktif' : ''}`}
               right={
                 <Pressable onPress={() => handleFavorite(item)} hitSlop={8}>
-                  <Text style={styles.star}>{item.favorite ? '★' : '☆'}</Text>
+                  <Text style={[styles.favText, item.favorite && styles.favTextActive]}>
+                    {item.favorite ? 'Favorit' : 'Jadikan Favorit'}
+                  </Text>
                 </Pressable>
               }
             />
@@ -190,7 +191,8 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     marginBottom: SPACING.sm + 2,
   },
-  star: { fontSize: 20, color: COLORS.amber },
+  favText: { fontSize: 12, fontWeight: '700', color: COLORS.inkFaint },
+  favTextActive: { color: COLORS.amber },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.xs, marginHorizontal: SPACING.sm },
   actionsRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm, marginHorizontal: SPACING.sm },
   actionBtn: { flex: 1, paddingHorizontal: 8 },

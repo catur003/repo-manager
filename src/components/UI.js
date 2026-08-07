@@ -82,19 +82,14 @@ export function SectionTitle({ children, style }) {
 
 /**
  * PillRow - baris list bulat penuh (stadium shape), gaya "File Viewer"
- * zenvps: ikon kiri + label, satu baris per item, radius jauh lebih besar
- * dari Card biasa. Dipakai Storage Manager (permintaan Zen: "storage
- * managernya jadi kayak zen vps liat foto").
+ * zenvps: label + sublabel, satu baris per item, radius jauh lebih besar
+ * dari Card biasa. TIDAK pakai icon/emoji apa pun (keputusan Zen 7
+ * Agustus 2026: "jangan pernah pake icon di seluruh project").
  */
-export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default' }) {
+export function PillRow({ label, sublabel, onPress, right, tone = 'default' }) {
   const Wrapper = onPress ? Pressable : View;
   return (
-    <Wrapper onPress={onPress} style={({ pressed }) => [pillStyles.row, pressed && onPress ? { opacity: 0.7 } : null]}>
-      {icon ? (
-        <View style={[pillStyles.iconWrap, tone === 'accent' && pillStyles.iconWrapAccent]}>
-          <Text style={pillStyles.iconText}>{icon}</Text>
-        </View>
-      ) : null}
+    <Wrapper onPress={onPress} style={({ pressed }) => [pillStyles.row, tone === 'accent' && pillStyles.rowAccent, pressed && onPress ? { opacity: 0.7 } : null]}>
       <View style={{ flex: 1 }}>
         <Text style={pillStyles.label} numberOfLines={1}>{label}</Text>
         {sublabel ? <Text style={pillStyles.sublabel} numberOfLines={1}>{sublabel}</Text> : null}
@@ -106,16 +101,14 @@ export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default
 
 /**
  * Tile - kartu menu persegi buat grid "Aksi Cepat" ala zenvps Dashboard.
+ * Teks murni, tidak ada icon/emoji (lihat catatan PillRow di atas).
  * `soon` = fitur belum dibangun (bukan dead-end diam-diam - tetap bisa
  * di-tap tapi kasih tahu status fase-nya, sama pola dengan tombol
  * Push/Pull di CompareScreen).
  */
-export function Tile({ icon, label, badge, soon, onPress }) {
+export function Tile({ label, badge, soon, onPress }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [tileStyles.tile, pressed && { opacity: 0.75 }, soon && tileStyles.tileSoon]}>
-      <View style={[tileStyles.iconWrap, soon && tileStyles.iconWrapSoon]}>
-        <Text style={tileStyles.iconText}>{icon}</Text>
-      </View>
       <Text style={tileStyles.label} numberOfLines={2}>{label}</Text>
       {badge ? <Text style={tileStyles.badge}>{badge}</Text> : null}
     </Pressable>
@@ -137,6 +130,26 @@ export function HeroCard({ eyebrow, title, subtitle, children }) {
         {subtitle ? <Text style={heroStyles.subtitle}>{subtitle}</Text> : null}
         {children}
       </View>
+    </View>
+  );
+}
+
+/**
+ * StatusTable - tabel label/value dua kolom, gaya panel "Dashboard" CLI
+ * asli (dashboard.py: Repository aktif, Branch aktif, Remote, dst).
+ * `rows`: [{ label, value }]. Baris dengan `value` kosong/'-' tetap
+ * ditampilkan (bukan disembunyikan) - konsisten sama CLI yang selalu
+ * nunjukin semua field walau isinya "-".
+ */
+export function StatusTable({ rows }) {
+  return (
+    <View>
+      {rows.map((r, i) => (
+        <View key={i} style={[statusTableStyles.row, i === rows.length - 1 && { borderBottomWidth: 0 }]}>
+          <Text style={statusTableStyles.label}>{r.label}</Text>
+          <Text style={statusTableStyles.value} numberOfLines={2}>{r.value}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -231,16 +244,7 @@ const pillStyles = StyleSheet.create({
     marginBottom: SPACING.sm,
     gap: SPACING.sm + 2,
   },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapAccent: { backgroundColor: COLORS.accent },
-  iconText: { fontSize: 16 },
+  rowAccent: { borderColor: COLORS.accent, backgroundColor: COLORS.accentSoft },
   label: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sublabel: { fontSize: 12, color: COLORS.inkMuted, marginTop: 2 },
 });
@@ -255,20 +259,11 @@ const tileStyles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.sm,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 64,
     marginBottom: SPACING.sm + 2,
   },
   tileSoon: { opacity: 0.6 },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: COLORS.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  iconWrapSoon: { backgroundColor: COLORS.divider },
-  iconText: { fontSize: 18 },
   label: { fontSize: 11, fontWeight: '700', color: COLORS.ink, textAlign: 'center', lineHeight: 14 },
   badge: { fontSize: 9, fontWeight: '700', color: COLORS.inkFaint, marginTop: 4, textAlign: 'center' },
 });
@@ -303,6 +298,17 @@ const heroStyles = StyleSheet.create({
   eyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: 0.6 },
   title: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
+});
+
+const statusTableStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  label: { width: 150, fontSize: 12, fontWeight: '700', color: COLORS.inkMuted },
+  value: { flex: 1, fontSize: 12, color: COLORS.ink, fontFamily: 'monospace' },
 });
 
 // Re-export supaya kode lama yang masih `import { COLORS } from './UI'`

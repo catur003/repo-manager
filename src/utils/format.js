@@ -31,3 +31,13 @@ export function timeAgo(ts) {
   if (hrs < 24) return `${hrs} jam lalu`;
   return `${Math.floor(hrs / 24)} hari lalu`;
 }
+
+/** Format "YYYY-MM-DD HH:mm:ss" - persis format now_str() di CLI asli
+ * (dashboard.py), dipakai panel status Dashboard. */
+export function formatDateTime(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}

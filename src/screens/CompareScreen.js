@@ -17,7 +17,7 @@ import { Button, HeroCard, Card, StatusBadge, ErrorBanner, InfoBanner } from '..
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
-import { pushRepo, pullRepo, forcePushRepo } from '../git/syncRepo';
+import { pushRepo, pullRepo, forcePushRepo, confirmStashSafe, discardAppliedStash } from '../git/syncRepo';
 
 const RECOMMENDATION = {
   synced: 'Tidak ada aksi diperlukan.',
@@ -58,17 +58,51 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
     try {
       const res = await pullRepo(repo.dir, repo.defaultBranch, token, author);
       setBusy(false);
-      if (res.blockedDirty) {
-        appAlert(
-          'Ada perubahan belum di-commit',
-          'Pull ditunda supaya perubahanmu gak ketimpa. Commit dulu perubahan yang ada, baru Pull lagi.',
-          [
-            { text: 'Nanti saja', style: 'cancel' },
-            { text: 'Buka Working Tree', style: 'primary', onPress: () => onOpenWorkingTree(repo) },
-          ]
-        );
+
+      if (res.error && !res.ok) {
+        // Pull gagal total sebelum apply - stash (kalau ada) masih utuh, belum disentuh.
+        appAlert('Pull Gagal', res.error);
         return;
       }
+
+      if (res.stashKept) {
+        // Ada auto-stash yang perlu diverifikasi user - stash SENGAJA belum
+        // dihapus (lihat catatan di syncRepo.js kenapa: isomorphic-git gak
+        // bisa deteksi conflict pas apply, jadi stash dijadiin jaring pengaman).
+        appAlert(
+          res.stashApplied ? 'Pull Berhasil' : 'Pull Berhasil, Tapi...',
+          res.stashApplied
+            ? 'Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.'
+            : res.error,
+          res.stashApplied
+            ? [
+                {
+                  text: 'Ada Masalah, Buang Hasilnya',
+                  style: 'cancel',
+                  onPress: async () => {
+                    await discardAppliedStash(repo.dir);
+                    appAlert('Dibatalkan', 'Hasil terapan dibuang, kondisi kembali ke abis pull. Perubahan lokal kamu tetap aman tersimpan di stash, coba lagi nanti.');
+                  },
+                },
+                {
+                  text: 'Sudah Aman, Hapus Cadangan',
+                  style: 'primary',
+                  onPress: async () => {
+                    const result = await confirmStashSafe(repo.dir, res.stashMessage);
+                    if (result.dropped) {
+                      appAlert('Cadangan Dihapus', 'Stash otomatis sudah dibersihkan.');
+                    } else {
+                      appAlert('Stash Tidak Ditemukan', 'Stash-nya udah gak ada di daftar (mungkin sudah dihapus dari tempat lain) - gak ada yang dihapus, aman.');
+                    }
+                  },
+                },
+              ]
+            : [{ text: 'Mengerti', style: 'primary' }]
+        );
+        await run();
+        return;
+      }
+
       appAlert('Pull Berhasil', 'Perubahan terbaru dari GitHub sudah digabung.');
       await run();
     } catch (e) {

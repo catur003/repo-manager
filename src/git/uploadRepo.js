@@ -75,23 +75,23 @@ export function countZipItems(entryNames) {
 /** Item satu level langsung di bawah rootPrefix - buat "Upload Preview"
  * (versi disederhanakan dari rich.Tree CLI: daftar rata, dibatasi jumlah
  * item yang ditampilkan, bukan tree bertingkat penuh - layar HP kecil). */
-export function previewChildren(entryNames, rootPrefix, limit = 25) {
-  const dirs = new Set();
-  const files = [];
+/** Daftar SEMUA file (path relatif lengkap, bukan cuma nama folder
+ * tingkat atas) di bawah rootPrefix - buat "Upload Preview". BUGFIX (7
+ * Agustus 2026, laporan Zen): sebelumnya cuma nunjukin nama folder
+ * tingkat pertama (mis. "app/"), gak keliatan isinya sama sekali kalau
+ * strukturnya nested dalam. Sekarang nampilin path file penuh. */
+export function previewChildren(entryNames, rootPrefix, limit = 40) {
   const plen = rootPrefix.length;
+  const files = [];
   for (const name of entryNames) {
+    if (name.endsWith('/')) continue; // penanda folder, bukan file
     if (rootPrefix && !name.startsWith(rootPrefix)) continue;
     const rel = name.slice(plen);
     if (!rel) continue;
-    const parts = rel.split('/');
-    if (parts.length > 1) {
-      if (parts[0]) dirs.add(parts[0]);
-    } else if (!rel.endsWith('/') && parts[0]) {
-      files.push(parts[0]);
-    }
+    files.push(rel);
   }
-  const items = [...[...dirs].sort().map((d) => ({ name: d, isDir: true })), ...files.sort().map((f) => ({ name: f, isDir: false }))];
-  return { items: items.slice(0, limit), remaining: Math.max(0, items.length - limit) };
+  files.sort();
+  return { items: files.slice(0, limit), remaining: Math.max(0, files.length - limit) };
 }
 
 /**

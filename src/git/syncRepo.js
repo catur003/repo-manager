@@ -26,8 +26,30 @@ import http from 'isomorphic-git/http/web';
 import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
-import { getWorkingTreeStatus } from './compareRepository';
 import { updateRepoEvent } from './localRepos';
+
+/**
+ * BUGFIX (7 Agustus 2026, laporan Zen): dulu pakai getWorkingTreeStatus()
+ * biasa buat nentuin perlu stash atau enggak - itu ngitung SEMUA
+ * perubahan termasuk file untracked (baru, belum pernah di-Add). Masalahnya
+ * git.stash() isomorphic-git CUMA nyimpen tracked files (dikonfirmasi di
+ * docs resminya). Jadi kalau yang bikin "kotor" cuma file baru dari Upload
+ * yang belum di-Add, stash gak punya apa-apa buat disimpan -> isomorphic-git
+ * lempar error "nothing to stash" -> Pull gagal total, padahal harusnya
+ * tetap bisa jalan (file untracked gak akan ketimpa pull).
+ *
+ * Fungsi ini cek KHUSUS tracked files yang berubah - file untracked murni
+ * (head===0 && stage===0, belum pernah di-Add sama sekali) diabaikan,
+ * gak dianggap alasan buat stash.
+ */
+async function hasTrackedDirtyChanges(dir) {
+  const rows = await git.statusMatrix({ fs, dir });
+  return rows.some(([, head, workdir, stage]) => {
+    const isUntracked = head === 0 && stage === 0;
+    if (isUntracked) return false;
+    return head !== workdir || workdir !== stage;
+  });
+}
 
 /** Push biasa - padanan push(). Preflight: harus ada remote (selalu ada
  * di app ini karena repo selalu hasil clone). Kalau ditolak
@@ -93,8 +115,7 @@ export async function forcePushRepo(dir, branch, token) {
  * kalau gak diverifikasi dulu.
  */
 export async function pullRepo(dir, branch, token, author) {
-  const treeStatus = await getWorkingTreeStatus(dir);
-  const wasDirty = treeStatus === 'modified';
+  const wasDirty = await hasTrackedDirtyChanges(dir);
   const stashMessage = `auto-stash-before-pull:${Date.now()}`;
 
   if (wasDirty) {

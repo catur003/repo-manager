@@ -361,12 +361,10 @@ export default function UploadScreen({ repo, onBack }) {
 
         <SectionTitle>Upload Preview (isi root project)</SectionTitle>
         <Card>
-          {preview.items.map((it) => (
-            <Text key={it.name} style={styles.previewLine}>
-              {it.isDir ? `${it.name}/` : it.name}
-            </Text>
+          {preview.items.map((path) => (
+            <Text key={path} style={styles.previewLine}>{path}</Text>
           ))}
-          {preview.remaining > 0 ? <Text style={styles.previewMore}>... dan {preview.remaining} item lainnya</Text> : null}
+          {preview.remaining > 0 ? <Text style={styles.previewMore}>... dan {preview.remaining} file lainnya</Text> : null}
         </Card>
 
         <Button title="Lanjutkan" onPress={proceedToDiff} />

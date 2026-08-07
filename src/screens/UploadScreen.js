@@ -208,6 +208,8 @@ export default function UploadScreen({ repo, onBack }) {
       setBusy(false);
     }
   };
+
+  const runExtract = async () => {
     setMode('extracting');
     setProgress({ done: 0, total: diff.totalEntries });
     const destUri = destFolder ? `${repoRealDir(repo)}/${destFolder.replace(/\/+$/, '')}` : repoRealDir(repo);

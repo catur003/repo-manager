@@ -10,8 +10,7 @@
       "package": "id.zen.repomanager"
     },
     "plugins": [
-      "expo-secure-store",
-      "expo-font"
+      "expo-secure-store"
     ],
     "ios": {
       "bundleIdentifier": "id.zen.repomanager"

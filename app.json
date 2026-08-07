@@ -5,13 +5,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#f0f9ff",
     "scheme": "repomanager",
     "android": {
       "package": "id.zen.repomanager"
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "ios": {
+      "bundleIdentifier": "id.zen.repomanager"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0b03882d-2d06-497d-a8fb-1f394c382b3d"
+      }
+    }
   }
 }

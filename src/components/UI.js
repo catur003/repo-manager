@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View, Pressable } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../theme';
 
 const VARIANT_BG = {
@@ -66,8 +66,79 @@ export function ErrorBanner({ message }) {
   );
 }
 
+/** Banner info gaya "Beta, read-only..." di File Viewer zenvps - kotak
+ * lavender lembut buat catatan/instruksi, bukan error. */
+export function InfoBanner({ children }) {
+  return (
+    <View style={infoStyles.box}>
+      <Text style={infoStyles.text}>{children}</Text>
+    </View>
+  );
+}
+
 export function SectionTitle({ children, style }) {
   return <Text style={[styles.sectionTitle, style]}>{children}</Text>;
+}
+
+/**
+ * PillRow - baris list bulat penuh (stadium shape), gaya "File Viewer"
+ * zenvps: ikon kiri + label, satu baris per item, radius jauh lebih besar
+ * dari Card biasa. Dipakai Storage Manager (permintaan Zen: "storage
+ * managernya jadi kayak zen vps liat foto").
+ */
+export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default' }) {
+  const Wrapper = onPress ? Pressable : View;
+  return (
+    <Wrapper onPress={onPress} style={({ pressed }) => [pillStyles.row, pressed && onPress ? { opacity: 0.7 } : null]}>
+      {icon ? (
+        <View style={[pillStyles.iconWrap, tone === 'accent' && pillStyles.iconWrapAccent]}>
+          <Text style={pillStyles.iconText}>{icon}</Text>
+        </View>
+      ) : null}
+      <View style={{ flex: 1 }}>
+        <Text style={pillStyles.label} numberOfLines={1}>{label}</Text>
+        {sublabel ? <Text style={pillStyles.sublabel} numberOfLines={1}>{sublabel}</Text> : null}
+      </View>
+      {right}
+    </Wrapper>
+  );
+}
+
+/**
+ * Tile - kartu menu persegi buat grid "Aksi Cepat" ala zenvps Dashboard.
+ * `soon` = fitur belum dibangun (bukan dead-end diam-diam - tetap bisa
+ * di-tap tapi kasih tahu status fase-nya, sama pola dengan tombol
+ * Push/Pull di CompareScreen).
+ */
+export function Tile({ icon, label, badge, soon, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [tileStyles.tile, pressed && { opacity: 0.75 }, soon && tileStyles.tileSoon]}>
+      <View style={[tileStyles.iconWrap, soon && tileStyles.iconWrapSoon]}>
+        <Text style={tileStyles.iconText}>{icon}</Text>
+      </View>
+      <Text style={tileStyles.label} numberOfLines={2}>{label}</Text>
+      {badge ? <Text style={tileStyles.badge}>{badge}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Kartu hero gradasi-semu ala "Server Online" zenvps - RN gak punya
+ * gradient bawaan tanpa dependency native baru, jadi didekati pakai warna
+ * solid COLORS.accent + blob translucent dekoratif (pola sama dengan
+ * AuroraBackground, cuma dipakai lokal di satu kartu). */
+export function HeroCard({ eyebrow, title, subtitle, children }) {
+  return (
+    <View style={heroStyles.card}>
+      <View style={heroStyles.blobA} />
+      <View style={heroStyles.blobB} />
+      <View style={heroStyles.content}>
+        {eyebrow ? <Text style={heroStyles.eyebrow}>{eyebrow}</Text> : null}
+        <Text style={heroStyles.title}>{title}</Text>
+        {subtitle ? <Text style={heroStyles.subtitle}>{subtitle}</Text> : null}
+        {children}
+      </View>
+    </View>
+  );
 }
 
 // Badge status repo (dipakai Local Repos: Clean/Modified, dan Compare:
@@ -135,6 +206,103 @@ const badgeStyles = StyleSheet.create({
   },
   dot: { width: 6, height: 6, borderRadius: 3 },
   label: { fontSize: 12, fontWeight: '700' },
+});
+
+const infoStyles = StyleSheet.create({
+  box: {
+    backgroundColor: COLORS.accentSoft,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md + 2,
+    marginBottom: SPACING.md,
+  },
+  text: { fontSize: 13, color: COLORS.ink, lineHeight: 19 },
+});
+
+const pillStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.pill,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md + 2,
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm + 2,
+  },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapAccent: { backgroundColor: COLORS.accent },
+  iconText: { fontSize: 16 },
+  label: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  sublabel: { fontSize: 12, color: COLORS.inkMuted, marginTop: 2 },
+});
+
+const tileStyles = StyleSheet.create({
+  tile: {
+    flexBasis: '31%',
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+    alignItems: 'center',
+    marginBottom: SPACING.sm + 2,
+  },
+  tileSoon: { opacity: 0.6 },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  iconWrapSoon: { backgroundColor: COLORS.divider },
+  iconText: { fontSize: 18 },
+  label: { fontSize: 11, fontWeight: '700', color: COLORS.ink, textAlign: 'center', lineHeight: 14 },
+  badge: { fontSize: 9, fontWeight: '700', color: COLORS.inkFaint, marginTop: 4, textAlign: 'center' },
+});
+
+const heroStyles = StyleSheet.create({
+  card: {
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg + 2,
+    marginBottom: SPACING.md + 2,
+    overflow: 'hidden',
+  },
+  blobA: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    top: -60,
+    right: -40,
+  },
+  blobB: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    bottom: -50,
+    left: -30,
+  },
+  content: {},
+  eyebrow: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: 0.6 },
+  title: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', marginTop: 4 },
+  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
 });
 
 // Re-export supaya kode lama yang masih `import { COLORS } from './UI'`

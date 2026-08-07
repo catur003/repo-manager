@@ -104,7 +104,13 @@ function AppShell() {
         ) : storageManagerOpen ? (
           <StorageManagerScreen onBack={() => setStorageManagerOpen(false)} />
         ) : tab === 'dashboard' ? (
-          <DashboardScreen profile={profile} refreshKey={refreshKey} />
+          <DashboardScreen
+            profile={profile}
+            refreshKey={refreshKey}
+            onNavigateTab={setTab}
+            onOpenCompare={setCompareRepo}
+            onOpenStorageManager={() => setStorageManagerOpen(true)}
+          />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
         ) : tab === 'local' ? (

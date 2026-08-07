@@ -18,9 +18,9 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { Button, Card, StatusBadge, SectionTitle } from '../components/UI';
+import { Button, Card, StatusBadge, SectionTitle, InfoBanner, PillRow } from '../components/UI';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { listLocalRepos, removeLocalRepo } from '../git/localRepos';
 import { getDirSizeBytes, getDeviceStorageInfo } from '../git/diskUsage';
@@ -107,6 +107,11 @@ export default function StorageManagerScreen({ onBack }) {
         </Pressable>
       </View>
 
+      <InfoBanner>
+        Ringkasan penyimpanan repo lokal di HP ini. Tap "Hapus" buat bebasin ruang - repo dengan commit belum
+        di-push ditandai dulu sebelum dihapus.
+      </InfoBanner>
+
       <Card>
         {loading ? (
           <ActivityIndicator color={COLORS.accent} />
@@ -138,24 +143,34 @@ export default function StorageManagerScreen({ onBack }) {
         <FlatList
           data={sorted}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: SPACING.xl }}
+          contentContainerStyle={{ paddingBottom: SPACING.xl + 56 }}
+          refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={COLORS.accent} />}
           ListEmptyComponent={<Text style={styles.emptyText}>Belum ada repo lokal.</Text>}
           renderItem={({ item }) => (
-            <Card>
-              <Text style={styles.repoName}>{item.fullName}</Text>
-              <Text style={styles.repoMeta}>
-                {formatSize(item.sizeBytes / 1024)} · dibuka {timeAgo(item.lastOpenedAt)}
-              </Text>
-              {item.unpushed ? (
-                <View style={{ marginTop: SPACING.sm }}>
-                  <StatusBadge status="ahead" label="Ada perubahan belum di-push" />
-                </View>
-              ) : null}
-              <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={{ marginTop: SPACING.sm }} />
-            </Card>
+            <View style={styles.pillCard}>
+              <PillRow
+                icon="📁"
+                tone={item.unpushed ? 'accent' : 'default'}
+                label={item.fullName}
+                sublabel={`${formatSize(item.sizeBytes / 1024)} · dibuka ${timeAgo(item.lastOpenedAt)}`}
+              />
+              <View style={styles.pillFooter}>
+                {item.unpushed ? <StatusBadge status="ahead" label="Belum di-push" /> : <StatusBadge status="clean" label="Sudah sinkron" />}
+                <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={styles.pillDeleteBtn} />
+              </View>
+            </View>
           )}
         />
       )}
+
+      {/* Tombol refresh mengambang - gaya cluster bulat kanan-bawah di
+          File Viewer zenvps (permintaan Zen: "storage managernya jadi
+          kayak zen vps"). */}
+      {!loading ? (
+        <Pressable onPress={load} style={styles.fab} hitSlop={8}>
+          <Text style={styles.fabIcon}>⟳</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -180,6 +195,40 @@ const styles = StyleSheet.create({
   sortChipText: { fontSize: 12, fontWeight: '600', color: COLORS.inkMuted },
   sortChipTextActive: { color: COLORS.accent },
   emptyText: { color: COLORS.inkMuted, textAlign: 'center', marginTop: SPACING.xl },
-  repoName: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
-  repoMeta: { fontSize: 12, color: COLORS.inkMuted, marginTop: 4 },
+  pillCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm + 2,
+  },
+  pillFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.sm,
+    paddingBottom: 4,
+    marginTop: -4,
+  },
+  pillDeleteBtn: { paddingVertical: 8, paddingHorizontal: SPACING.md },
+  fab: {
+    position: 'absolute',
+    right: SPACING.lg,
+    bottom: SPACING.lg,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  fabIcon: { fontSize: 22, color: COLORS.accent },
 });

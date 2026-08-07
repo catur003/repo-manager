@@ -11,6 +11,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
 import { Button, HeroCard, Card, StatusBadge, ErrorBanner, InfoBanner } from '../components/UI';
 import { LoadingModal } from '../components/AppModals';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
 import { getCurrentBranch } from '../git/branchOps';
@@ -52,6 +53,11 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
   useEffect(() => {
     run();
   }, [run]);
+
+  useBackHandler(() => {
+    if (sync.forcePushMode) { sync.cancelForcePush(); return true; }
+    return false;
+  }, [sync.forcePushMode]);
 
   return (
     <View style={styles.container}>

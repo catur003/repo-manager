@@ -21,17 +21,20 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { Card, SectionTitle, Tile, StatusTable } from '../components/UI';
+import { Card, SectionTitle, Tile, StatusTable, SuccessBanner } from '../components/UI';
 import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
 import { getRepoStatusSummary } from '../git/repoStatus';
+import { timeAgo } from '../utils/format';
+
+const RECENT_MS = 30 * 60 * 1000; // 30 menit - ambang "baru-baru ini" buat banner
 
 function soonAlert(fase, nama) {
   appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash, onOpenBranch }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash, onOpenBranch, onOpenMerge }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,12 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       label: 'Pull',
       onPress: () => (active ? onOpenSync(active, 'pull') : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
-    { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
+    {
+      icon: 'git-merge',
+      label: 'Merge & PR',
+      badge: 'PR blm ada',
+      onPress: () => (active ? onOpenMerge(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
     { icon: 'bar-chart-2', label: 'Storage Manager', onPress: onOpenStorageManager },
     {
@@ -130,6 +138,17 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }} showsVerticalScrollIndicator={false}>
       <SectionTitle>Dashboard</SectionTitle>
+
+      {!loading && summary?.lastPushMs && Date.now() - summary.lastPushMs < RECENT_MS ? (
+        <SuccessBanner>
+          Branch "{summary.branch}" baru saja di-push ({timeAgo(summary.lastPushMs)}) - cek di GitHub kalau
+          perlu.
+        </SuccessBanner>
+      ) : null}
+      {!loading && summary?.lastPullMs && Date.now() - summary.lastPullMs < RECENT_MS ? (
+        <SuccessBanner>Branch "{summary.branch}" baru saja di-pull ({timeAgo(summary.lastPullMs)}).</SuccessBanner>
+      ) : null}
+
       <Card>
         {loading ? <ActivityIndicator color={COLORS.accent} /> : <StatusTable rows={rows} />}
       </Card>

@@ -14,6 +14,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput } from 'react-native';
 import { Button, Card, SectionTitle, InfoBanner, PillRow } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { COLORS, SPACING } from '../theme';
 import { fetchRepo } from '../git/syncRepo';
 import { getLocalAheadBehind } from '../git/compareRepository';
@@ -59,6 +60,11 @@ export default function SyncScreen({ repo, token, author, mode, onBack }) {
   };
 
   const isPush = mode === 'push';
+
+  useBackHandler(() => {
+    if (sync.forcePushMode) { sync.cancelForcePush(); return true; }
+    return false;
+  }, [sync.forcePushMode]);
 
   return (
     <View style={styles.container}>

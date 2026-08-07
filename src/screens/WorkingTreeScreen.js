@@ -21,6 +21,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Button, Card, SectionTitle, InfoBanner, PillRow, StatusTable, ErrorBanner, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { COLORS, SPACING } from '../theme';
 import { REPOS_ROOT } from '../git/fsAdapter';
 import {
@@ -78,6 +79,11 @@ export default function WorkingTreeScreen({ repo, author, onBack }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useBackHandler(() => {
+    if (mode !== 'status') { setMode('status'); return true; }
+    return false;
+  }, [mode]);
 
   const toggleSelect = (filepath) => {
     setSelected((prev) => {

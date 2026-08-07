@@ -33,6 +33,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Button, Card, SectionTitle, InfoBanner, SuccessBanner, PillRow, StatusTable, ErrorBanner } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { COLORS, SPACING } from '../theme';
 import { REPOS_ROOT } from '../git/fsAdapter';
 import {
@@ -99,6 +100,15 @@ export default function UploadScreen({ repo, onBack }) {
     setSummary(null);
     setZipSizeBytes(0);
   };
+
+  // Back Android: keluar dari mode manapun yang lagi jalan balik ke menu
+  // utama Upload dulu (bukan sekaligus keluar overlay & balik ke tab) -
+  // sesuai laporan Zen. Belum step-by-step penuh (chooseRoot -> zipStats
+  // -> dst satu-satu), tapi udah nyelamatin dari "back = keluar app".
+  useBackHandler(() => {
+    if (mode !== 'menu') { reset(); return true; }
+    return false;
+  }, [mode]);
 
   const destUriFor = (dest) => (dest ? `${repoRealDir(repo)}/${dest.replace(/\/+$/, '')}` : repoRealDir(repo));
 

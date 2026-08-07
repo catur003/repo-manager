@@ -10,6 +10,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TextInput } from 'react-native';
 import { Button, Card, SectionTitle, InfoBanner, PillRow, ErrorBanner, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
+import { useBackHandler } from '../hooks/useBackHandler';
 import { COLORS, SPACING } from '../theme';
 import {
   listLocalBranches,
@@ -53,6 +54,15 @@ export default function BranchScreen({ repo, token, onBack }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Back Android: mundur satu langkah di dalam layar ini dulu (rename ->
+  // batal, mode selain 'list' -> balik ke 'list') sebelum nutup total
+  // ke overlay App.js (lihat useBackHandler.js soal LIFO-nya).
+  useBackHandler(() => {
+    if (renameTarget) { setRenameTarget(null); setRenameValue(''); return true; }
+    if (mode !== 'list') { setMode('list'); return true; }
+    return false;
+  }, [renameTarget, mode]);
 
   const doCheckout = async (name) => {
     setBusy(true);
@@ -109,16 +119,15 @@ export default function BranchScreen({ repo, token, onBack }) {
     }
   };
 
+  // FIX (7 Agustus 2026, klarifikasi Zen soal item #5 sebelumnya): menu
+  // aksi sekarang SELALU nampilin 4 opsi yang sama, baik branch aktif
+  // maupun enggak - dulu branch aktif cuma dikasih Rename/Tutup. Kalau
+  // ada aksi yang emang gak valid buat branch aktif (mis. checkout ke
+  // diri sendiri, hapus branch yang lagi dipakai), git/isomorphic-git
+  // sendiri yang nolak dengan pesan jelas - bukan disembunyiin dari UI.
   const handleBranchTap = (name) => {
-    if (name === current) {
-      appAlert(name, 'Ini branch yang lagi aktif.', [
-        { text: 'Rename', style: 'primary', onPress: () => setRenameTarget(name) },
-        { text: 'Tutup', style: 'cancel' },
-      ]);
-      return;
-    }
-    appAlert(name, 'Pilih aksi:', [
-      { text: 'Checkout', style: 'primary', onPress: () => doCheckout(name) },
+    appAlert(name, name === current ? 'Branch ini lagi aktif.' : 'Pilih aksi:', [
+      { text: 'Checkout (pakai branch ini)', style: 'success', onPress: () => doCheckout(name) },
       { text: 'Rename', style: 'primary', onPress: () => setRenameTarget(name) },
       { text: 'Hapus', style: 'danger', onPress: () => doDelete(name) },
       { text: 'Batal', style: 'cancel' },

@@ -77,7 +77,13 @@ export function AppAlertHost() {
                 }}
                 style={[
                   styles.btn,
-                  b.style === 'danger' ? styles.btnDanger : b.style === 'cancel' ? styles.btnCancel : styles.btnPrimary,
+                  b.style === 'danger'
+                    ? styles.btnDanger
+                    : b.style === 'cancel'
+                    ? styles.btnCancel
+                    : b.style === 'success'
+                    ? styles.btnSuccess
+                    : styles.btnPrimary,
                 ]}
               >
                 <Text style={[styles.btnText, b.style === 'cancel' && styles.btnTextCancel]}>{b.text}</Text>
@@ -135,6 +141,7 @@ const styles = StyleSheet.create({
   },
   btnPrimary: { backgroundColor: COLORS.accent },
   btnDanger: { backgroundColor: COLORS.red },
+  btnSuccess: { backgroundColor: COLORS.green },
   btnCancel: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: COLORS.cardBorder },
   btnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   btnTextCancel: { color: COLORS.inkMuted },

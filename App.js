@@ -18,9 +18,11 @@ import WorkingTreeScreen from './src/screens/WorkingTreeScreen';
 import SyncScreen from './src/screens/SyncScreen';
 import StashManagerScreen from './src/screens/StashManagerScreen';
 import BranchScreen from './src/screens/BranchScreen';
+import MergeScreen from './src/screens/MergeScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { AppAlertHost } from './src/components/AppModals';
+import { useBackHandler } from './src/hooks/useBackHandler';
 import { COLORS } from './src/theme';
 
 // BUGFIX (7 Agustus 2026): sebelumnya tidak ada SafeAreaProvider sama
@@ -51,6 +53,7 @@ function AppShell() {
   const [syncScreen, setSyncScreen] = useState(null); // { repo, mode: 'push'|'pull' } | null
   const [stashRepo, setStashRepo] = useState(null);
   const [branchRepo, setBranchRepo] = useState(null);
+  const [mergeRepo, setMergeRepo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -83,12 +86,30 @@ function AppShell() {
     setSyncScreen(null);
     setStashRepo(null);
     setBranchRepo(null);
+    setMergeRepo(null);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
   // langsung ke-refresh tanpa perlu logic subscribe/state-sharing rumit -
   // cukup naikkan angka ini, komponen yang butuh refresh dengarkan lewat prop.
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  // BUGFIX (7 Agustus 2026, laporan Zen): back button/gesture Android
+  // dulu langsung nge-exit app. Handler paling dasar ini nutup overlay
+  // yang lagi kebuka (kalau ada) - layar yang punya mode internal sendiri
+  // (Branch/Upload/Working Tree) daftar handler lebih spesifik di
+  // layarnya masing-masing yang jalan LEBIH DULU (lihat useBackHandler.js).
+  useBackHandler(() => {
+    if (compareRepo) { setCompareRepo(null); bumpRefresh(); return true; }
+    if (storageManagerOpen) { setStorageManagerOpen(false); bumpRefresh(); return true; }
+    if (uploadRepo) { setUploadRepo(null); bumpRefresh(); return true; }
+    if (workingTreeRepo) { setWorkingTreeRepo(null); bumpRefresh(); return true; }
+    if (syncScreen) { setSyncScreen(null); bumpRefresh(); return true; }
+    if (stashRepo) { setStashRepo(null); bumpRefresh(); return true; }
+    if (branchRepo) { setBranchRepo(null); bumpRefresh(); return true; }
+    if (mergeRepo) { setMergeRepo(null); bumpRefresh(); return true; }
+    return false; // di layar tab utama - biarin OS yang urus (default: minimize/exit, normal)
+  }, [compareRepo, storageManagerOpen, uploadRepo, workingTreeRepo, syncScreen, stashRepo, branchRepo, mergeRepo, bumpRefresh]);
 
   if (checking) {
     return (
@@ -145,6 +166,12 @@ function AppShell() {
           <StashManagerScreen repo={stashRepo} onBack={() => { setStashRepo(null); bumpRefresh(); }} />
         ) : branchRepo ? (
           <BranchScreen repo={branchRepo} token={token} onBack={() => { setBranchRepo(null); bumpRefresh(); }} />
+        ) : mergeRepo ? (
+          <MergeScreen
+            repo={mergeRepo}
+            author={{ name: profile.name, email: profile.email }}
+            onBack={() => { setMergeRepo(null); bumpRefresh(); }}
+          />
         ) : (
           // BUGFIX (7 Agustus 2026, laporan Zen): dulu 4 layar tab ini
           // di-render kondisional (ternary) - tiap balik dari layar lain
@@ -166,6 +193,7 @@ function AppShell() {
                 onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
                 onOpenStash={setStashRepo}
                 onOpenBranch={setBranchRepo}
+                onOpenMerge={setMergeRepo}
               />
             </View>
             <View style={{ flex: 1, display: tab === 'github' ? 'flex' : 'none' }}>

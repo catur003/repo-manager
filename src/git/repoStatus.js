@@ -110,6 +110,11 @@ export async function getRepoStatusSummary(repo) {
     changedFiles,
     lastPush: repo.lastPush ? formatDateTime(new Date(repo.lastPush)) : '-',
     lastPull: repo.lastPull ? formatDateTime(new Date(repo.lastPull)) : '-',
+    // Raw timestamp (bukan string terformat) + flag "baru-baru ini" -
+    // buat banner warna di Dashboard (permintaan Zen: info push/pull
+    // gampang kelewat kalau ga teliti, harus lebih kelihatan).
+    lastPushMs: repo.lastPush || null,
+    lastPullMs: repo.lastPull || null,
     now: formatDateTime(),
   };
 }

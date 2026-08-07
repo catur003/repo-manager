@@ -94,13 +94,24 @@ export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default
       style={({ pressed }) => [
         pillStyles.row,
         tone === 'accent' && pillStyles.rowAccent,
+        tone === 'success' && pillStyles.rowSuccess,
+        tone === 'danger' && pillStyles.rowDanger,
+        tone === 'warning' && pillStyles.rowWarning,
         disabled && { opacity: 0.5 },
         pressed && onPress && !disabled ? { opacity: 0.7 } : null,
       ]}
     >
       {icon ? (
-        <View style={[pillStyles.iconWrap, tone === 'accent' && pillStyles.iconWrapAccent]}>
-          <Feather name={icon} size={16} color={tone === 'accent' ? COLORS.onAccent : COLORS.accent} />
+        <View
+          style={[
+            pillStyles.iconWrap,
+            tone === 'accent' && pillStyles.iconWrapAccent,
+            tone === 'success' && pillStyles.iconWrapSuccess,
+            tone === 'danger' && pillStyles.iconWrapDanger,
+            tone === 'warning' && pillStyles.iconWrapWarning,
+          ]}
+        >
+          <Feather name={icon} size={16} color={tone === 'default' ? COLORS.accent : COLORS.onAccent} />
         </View>
       ) : null}
       <View style={{ flex: 1 }}>
@@ -159,15 +170,38 @@ export function HeroCard({ eyebrow, title, subtitle, children }) {
  * ditampilkan (bukan disembunyikan) - konsisten sama CLI yang selalu
  * nunjukin semua field walau isinya "-".
  */
+/**
+ * StatusTable - tabel label/value dua kolom, gaya panel "Dashboard" CLI
+ * asli (dashboard.py: Repository aktif, Branch aktif, Remote, dst).
+ * `rows`: [{ label, value, tone? }]. `tone` opsional: 'success' (hijau),
+ * 'warning' (kuning/amber), 'danger' (merah) - dipakai buat baris yang
+ * butuh penekanan visual (mis. "Ahead/Behind", "File berubah") -
+ * permintaan Zen 7 Agustus 2026, biar gak semua baris keliatan sama rata
+ * padahal maknanya beda (aman vs perlu perhatian vs berbahaya).
+ */
 export function StatusTable({ rows }) {
   return (
     <View>
       {rows.map((r, i) => (
         <View key={i} style={[statusTableStyles.row, i === rows.length - 1 && { borderBottomWidth: 0 }]}>
           <Text style={statusTableStyles.label}>{r.label}</Text>
-          <Text style={statusTableStyles.value} numberOfLines={2}>{r.value}</Text>
+          <Text style={[statusTableStyles.value, r.tone && statusTableStyles[`value_${r.tone}`]]} numberOfLines={2}>
+            {r.value}
+          </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+/** SuccessBanner - versi hijau dari InfoBanner, khusus buat pesan
+ * "berhasil, langkah selanjutnya..." (permintaan Zen) - beda warna dari
+ * InfoBanner (netral/biru) supaya jelas ini kabar baik, bukan cuma info
+ * biasa. */
+export function SuccessBanner({ children }) {
+  return (
+    <View style={successStyles.box}>
+      <Text style={successStyles.text}>{children}</Text>
     </View>
   );
 }
@@ -263,6 +297,9 @@ const pillStyles = StyleSheet.create({
     gap: SPACING.sm + 2,
   },
   rowAccent: { borderColor: COLORS.accent, backgroundColor: COLORS.accentSoft },
+  rowSuccess: { borderColor: COLORS.green, backgroundColor: COLORS.greenSoft },
+  rowDanger: { borderColor: COLORS.red, backgroundColor: COLORS.redSoft },
+  rowWarning: { borderColor: COLORS.amber, backgroundColor: COLORS.amberSoft },
   iconWrap: {
     width: 34,
     height: 34,
@@ -272,6 +309,9 @@ const pillStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconWrapAccent: { backgroundColor: COLORS.accent },
+  iconWrapSuccess: { backgroundColor: COLORS.green },
+  iconWrapDanger: { backgroundColor: COLORS.red },
+  iconWrapWarning: { backgroundColor: COLORS.amber },
   label: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sublabel: { fontSize: 12, color: COLORS.inkMuted, marginTop: 2 },
 });
@@ -346,6 +386,19 @@ const statusTableStyles = StyleSheet.create({
   },
   label: { width: 150, fontSize: 12, fontWeight: '700', color: COLORS.inkMuted },
   value: { flex: 1, fontSize: 12, color: COLORS.ink, fontFamily: 'monospace' },
+  value_success: { color: COLORS.green, fontWeight: '700' },
+  value_warning: { color: COLORS.amber, fontWeight: '700' },
+  value_danger: { color: COLORS.red, fontWeight: '700' },
+});
+
+const successStyles = StyleSheet.create({
+  box: {
+    backgroundColor: COLORS.greenSoft,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md + 2,
+    marginBottom: SPACING.md,
+  },
+  text: { fontSize: 13, color: COLORS.ink, lineHeight: 19 },
 });
 
 // Re-export supaya kode lama yang masih `import { COLORS } from './UI'`

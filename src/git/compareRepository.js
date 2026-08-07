@@ -37,7 +37,7 @@ async function countCommitsNotIn(dir, fromOid, otherOidSet, limit = 250) {
   return count;
 }
 
-async function collectOids(dir, oid, limit = 250) {
+export async function collectOids(dir, oid, limit = 250) {
   const set = new Set();
   const queue = [oid];
   while (queue.length && set.size < limit) {

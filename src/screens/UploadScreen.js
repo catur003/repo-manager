@@ -31,7 +31,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import { Button, Card, SectionTitle, InfoBanner, PillRow, StatusTable, ErrorBanner } from '../components/UI';
+import { Button, Card, SectionTitle, InfoBanner, SuccessBanner, PillRow, StatusTable, ErrorBanner } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { REPOS_ROOT } from '../git/fsAdapter';
@@ -361,6 +361,7 @@ export default function UploadScreen({ repo, onBack }) {
         {detectedPrefixRaw ? (
           <PillRow
             icon={rootPrefix ? 'toggle-right' : 'toggle-left'}
+            tone={rootPrefix ? 'accent' : 'success'}
             label={rootPrefix ? `Strip wrapper "${detectedPrefixRaw}"` : 'Pakai struktur ZIP asli (tanpa strip)'}
             sublabel="Salah tebak? Tap buat ganti manual"
             onPress={toggleWrapperOverride}
@@ -442,6 +443,7 @@ export default function UploadScreen({ repo, onBack }) {
         ) : null}
         <PillRow
           icon={overwrite ? 'toggle-right' : 'toggle-left'}
+          tone={overwrite ? 'danger' : 'success'}
           label={overwrite ? 'Timpa file yang bentrok: Ya' : 'Timpa file yang bentrok: Tidak'}
           sublabel="Tap untuk ganti"
           onPress={() => setOverwrite((v) => !v)}
@@ -473,7 +475,7 @@ export default function UploadScreen({ repo, onBack }) {
             ]}
           />
         </Card>
-        <InfoBanner>Langkah berikutnya: pakai menu "Git Add & Commit" buat menyimpan perubahan ini.</InfoBanner>
+        <SuccessBanner>Langkah berikutnya: pakai menu "Git Add & Commit" buat menyimpan perubahan ini.</SuccessBanner>
         <Button title="Upload Lagi" variant="secondary" onPress={reset} />
         <Button title="Selesai" onPress={onBack} />
       </ScrollView>

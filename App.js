@@ -17,6 +17,7 @@ import UploadScreen from './src/screens/UploadScreen';
 import WorkingTreeScreen from './src/screens/WorkingTreeScreen';
 import SyncScreen from './src/screens/SyncScreen';
 import StashManagerScreen from './src/screens/StashManagerScreen';
+import BranchScreen from './src/screens/BranchScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { AppAlertHost } from './src/components/AppModals';
@@ -49,6 +50,7 @@ function AppShell() {
   const [workingTreeRepo, setWorkingTreeRepo] = useState(null); // repo yang lagi dibuka buat Working Tree/Commit
   const [syncScreen, setSyncScreen] = useState(null); // { repo, mode: 'push'|'pull' } | null
   const [stashRepo, setStashRepo] = useState(null);
+  const [branchRepo, setBranchRepo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -80,6 +82,7 @@ function AppShell() {
     setWorkingTreeRepo(null);
     setSyncScreen(null);
     setStashRepo(null);
+    setBranchRepo(null);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
@@ -140,6 +143,8 @@ function AppShell() {
           />
         ) : stashRepo ? (
           <StashManagerScreen repo={stashRepo} onBack={() => setStashRepo(null)} />
+        ) : branchRepo ? (
+          <BranchScreen repo={branchRepo} token={token} onBack={() => setBranchRepo(null)} />
         ) : tab === 'dashboard' ? (
           <DashboardScreen
             profile={profile}
@@ -151,6 +156,7 @@ function AppShell() {
             onOpenWorkingTree={setWorkingTreeRepo}
             onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
             onOpenStash={setStashRepo}
+            onOpenBranch={setBranchRepo}
           />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
@@ -163,7 +169,7 @@ function AppShell() {
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && !stashRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && !stashRepo && !branchRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

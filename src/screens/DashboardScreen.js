@@ -31,7 +31,7 @@ function soonAlert(fase, nama) {
   appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash, onOpenBranch }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
     load();
   }, [load, refreshKey]);
 
+  const aheadNum = Number(summary?.ahead) || 0;
+  const behindNum = Number(summary?.behind) || 0;
+  const aheadBehindTone = aheadNum > 0 && behindNum > 0 ? 'danger' : behindNum > 0 ? 'warning' : aheadNum > 0 ? 'success' : undefined;
+  const changedTone = summary?.changedFiles > 0 ? 'warning' : 'success';
+
   const rows = summary
     ? [
         { label: 'Repository aktif', value: summary.repoName },
@@ -59,10 +64,10 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
         { label: 'Remote', value: summary.remote },
         { label: 'Terhubung (Connected)', value: summary.connected },
         { label: 'Upstream', value: summary.upstream },
-        { label: 'Status Git', value: summary.statusLabel },
-        { label: 'Ahead / Behind', value: `${summary.ahead} ahead / ${summary.behind} behind` },
+        { label: 'Status Git', value: summary.statusLabel, tone: changedTone },
+        { label: 'Ahead / Behind', value: `${summary.ahead} ahead / ${summary.behind} behind`, tone: aheadBehindTone },
         { label: 'Commit terakhir', value: summary.lastCommit },
-        { label: 'Jumlah file berubah', value: String(summary.changedFiles) },
+        { label: 'Jumlah file berubah', value: String(summary.changedFiles), tone: changedTone },
         { label: 'Terakhir Push', value: summary.lastPush },
         { label: 'Terakhir Pull', value: summary.lastPull },
         { label: 'Tanggal & Jam', value: summary.now },
@@ -79,7 +84,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   const menuTiles = [
     { icon: 'github', label: 'Repository (GitHub)', onPress: () => onNavigateTab('github') },
     { icon: 'folder', label: 'Local Repos', onPress: () => onNavigateTab('local') },
-    { icon: 'git-branch', label: 'Branch', soon: 2, onPress: () => soonAlert(2, 'Branch') },
+    {
+      icon: 'git-branch',
+      label: 'Branch',
+      onPress: () => (active ? onOpenBranch(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
     {
       icon: 'upload',
       label: 'Upload',

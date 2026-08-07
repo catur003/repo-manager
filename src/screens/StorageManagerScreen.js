@@ -18,10 +18,11 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { Button, Card, StatusBadge, SectionTitle, InfoBanner, PillRow } from '../components/UI';
+import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { listLocalRepos, removeLocalRepo } from '../git/localRepos';
 import { getDirSizeBytes, getDeviceStorageInfo } from '../git/diskUsage';
@@ -79,11 +80,11 @@ export default function StorageManagerScreen({ onBack }) {
     const warning = repo.unpushed
       ? 'Repo ini masih punya commit yang BELUM di-push ke GitHub. Menghapus data lokal akan menghilangkan perubahan itu secara permanen.'
       : 'Data repo ini akan dihapus dari penyimpanan HP.';
-    Alert.alert(`Hapus ${repo.fullName}?`, warning, [
+    appAlert(`Hapus ${repo.fullName}?`, warning, [
       { text: 'Batal', style: 'cancel' },
       {
         text: 'Hapus data',
-        style: 'destructive',
+        style: 'danger',
         onPress: async () => {
           try {
             await FileSystem.deleteAsync(`${FileSystem.documentDirectory}repos/${repo.id}`, { idempotent: true });
@@ -91,7 +92,7 @@ export default function StorageManagerScreen({ onBack }) {
             await logActivity(`${repo.fullName} dihapus dari Storage Manager (data + daftar)`);
           } catch (e) {
             await logError(`Gagal hapus data ${repo.fullName} dari Storage Manager`, e?.message);
-            Alert.alert('Gagal menghapus', 'Data repo gagal dihapus dari penyimpanan. Coba lagi.');
+            appAlert('Gagal menghapus', 'Data repo gagal dihapus dari penyimpanan. Coba lagi.');
           }
           load();
         },

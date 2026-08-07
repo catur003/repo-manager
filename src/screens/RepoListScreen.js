@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
 import { Button, HeroCard, PillRow, ErrorBanner } from '../components/UI';
+import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { listUserRepos } from '../git/reposApi';
 import { preflightClone, doClone } from '../git/cloneRepo';
@@ -50,9 +51,9 @@ export default function RepoListScreen({ token, onCloned }) {
     const { warnings, recommendShallow } = await preflightClone(repo);
     const proceed = () => runClone(repo, recommendShallow);
     if (warnings.length) {
-      Alert.alert('Sebelum clone', warnings.join('\n\n'), [
+      appAlert('Sebelum clone', warnings.join('\n\n'), [
         { text: 'Batal', style: 'cancel' },
-        { text: 'Lanjutkan', onPress: proceed },
+        { text: 'Lanjutkan', style: 'primary', onPress: proceed },
       ]);
     } else {
       proceed();
@@ -75,12 +76,12 @@ export default function RepoListScreen({ token, onCloned }) {
       setCloning(false);
       setSelected(null);
       setProgress(null);
-      Alert.alert('Berhasil', `${repo.fullName} berhasil di-clone.`);
+      appAlert('Berhasil', `${repo.fullName} berhasil di-clone.`);
       if (onCloned) onCloned();
     } catch (e) {
       setCloning(false);
       await logError('Clone gagal dari RepoListScreen', e?.message);
-      Alert.alert('Clone gagal', e.message);
+      appAlert('Clone gagal', e.message);
     }
   };
 

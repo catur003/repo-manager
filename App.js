@@ -17,6 +17,7 @@ import UploadScreen from './src/screens/UploadScreen';
 import WorkingTreeScreen from './src/screens/WorkingTreeScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
+import { AppAlertHost } from './src/components/AppModals';
 import { COLORS } from './src/theme';
 
 // BUGFIX (7 Agustus 2026): sebelumnya tidak ada SafeAreaProvider sama
@@ -103,10 +104,20 @@ function AppShell() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <AuroraBackground />
+      <AppAlertHost />
 
       <View style={styles.content}>
         {compareRepo ? (
-          <CompareScreen repo={compareRepo} token={token} onBack={() => setCompareRepo(null)} />
+          <CompareScreen
+            repo={compareRepo}
+            token={token}
+            author={{ name: profile.name, email: profile.email }}
+            onBack={() => setCompareRepo(null)}
+            onOpenWorkingTree={(r) => {
+              setCompareRepo(null);
+              setWorkingTreeRepo(r);
+            }}
+          />
         ) : storageManagerOpen ? (
           <StorageManagerScreen onBack={() => setStorageManagerOpen(false)} />
         ) : uploadRepo ? (

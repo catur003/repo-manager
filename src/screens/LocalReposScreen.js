@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, TextInput, Linking } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, TextInput, Linking } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { Feather } from '@expo/vector-icons';
 import { Button, StatusBadge, PillRow } from '../components/UI';
+import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import {
   listLocalRepos,
@@ -63,13 +64,14 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, o
   };
 
   const handleDelete = (repo) => {
-    Alert.alert(
+    appAlert(
       `Hapus ${repo.fullName}?`,
       'Pilih apakah data repo di HP ini juga ikut dihapus, atau cuma dikeluarkan dari daftar.',
       [
         { text: 'Batal', style: 'cancel' },
         {
           text: 'Keluarkan dari daftar saja',
+          style: 'primary',
           onPress: async () => {
             await removeLocalRepo(repo.id);
             await logActivity(`${repo.fullName} dikeluarkan dari Local Repos (data tetap ada)`);
@@ -78,7 +80,7 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, o
         },
         {
           text: 'Hapus data juga',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
             try {
               await FileSystem.deleteAsync(`${FileSystem.documentDirectory}repos/${repo.id}`, { idempotent: true });
@@ -86,7 +88,7 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, o
               await logActivity(`${repo.fullName} dihapus (data + daftar)`);
             } catch (e) {
               await logError(`Gagal hapus data ${repo.fullName}`, e?.message);
-              Alert.alert('Gagal menghapus', 'Data repo gagal dihapus dari penyimpanan. Coba lagi.');
+              appAlert('Gagal menghapus', 'Data repo gagal dihapus dari penyimpanan. Coba lagi.');
             }
             load();
           },

@@ -126,11 +126,14 @@ export async function computeZipDiff(zip, entryNames, destDirUri, rootPrefix) {
     else sama += 1;
   }
 
-  const del = await countFilesNotInTargetSet(destDirUri, targetSet);
-  return { tambah, update, sama, delete: del, targetSet, totalEntries: targetSet.size };
+  const deleteSamples = [];
+  const delCount = await countFilesNotInTargetSet(destDirUri, targetSet, deleteSamples, 30);
+  // Path relatif ke destDirUri - lebih enak dibaca user daripada URI absolut.
+  const deleteSamplesRel = deleteSamples.map((uri) => uri.slice(destDirUri.replace(/\/+$/, '').length + 1));
+  return { tambah, update, sama, delete: delCount, deleteSamples: deleteSamplesRel, targetSet, totalEntries: targetSet.size };
 }
 
-async function countFilesNotInTargetSet(rootUri, targetSet) {
+async function countFilesNotInTargetSet(rootUri, targetSet, samples, sampleLimit) {
   let count = 0;
   let entries;
   try {
@@ -143,8 +146,15 @@ async function countFilesNotInTargetSet(rootUri, targetSet) {
     const childUri = `${rootUri.replace(/\/+$/, '')}/${name}`;
     const info = await FileSystem.getInfoAsync(childUri).catch(() => null);
     if (!info || !info.exists) continue;
-    if (info.isDirectory) count += await countFilesNotInTargetSet(childUri, targetSet);
-    else if (!targetSet.has(childUri)) count += 1;
+    if (info.isDirectory) {
+      count += await countFilesNotInTargetSet(childUri, targetSet, samples, sampleLimit);
+    } else if (!targetSet.has(childUri)) {
+      count += 1;
+      // Simpan path RELATIF ke rootUri asal (destDirUri), bukan childUri
+      // absolut, biar enak dibaca user - lihat pemanggil (computeZipDiff)
+      // yang nyimpen destDirUri buat hitung relatifnya balik.
+      if (samples.length < sampleLimit) samples.push(childUri);
+    }
   }
   return count;
 }
@@ -241,4 +251,35 @@ export async function listTopLevelDirs(rootUri, extraLevels = 1) {
   }
   await walk(rootUri, '', 0);
   return results;
+}
+
+/**
+ * Setelah zipCore.detectZipRoot() nebak prefix wrapper, "kupas dulu"
+ * kesalahan tebak yang paling umum sebelum dipakai (permintaan Zen -
+ * kasus nyata: ZIP isinya cuma app/api/siswa/route.js, struktur itu
+ * ke-detect sebagai wrapper padahal itu struktur folder yang memang
+ * diinginkan):
+ *
+ *  1. Kalau path hasil deteksi SUDAH ADA di repo tujuan -> itu struktur
+ *     asli yang memang dipakai project, bukan folder pembungkus ZIP.
+ *     Jangan di-strip (balikin '').
+ *  2. Kalau belum ada di repo, tapi hasil setelah di-strip ternyata cuma
+ *     1 file sendirian -> wrapper GitHub asli biasanya isinya banyak
+ *     file, 1 file sendirian curiga bukan wrapper juga. Jangan di-strip.
+ *
+ * INI BUKAN JAMINAN 100% BENER (lihat catatan di UploadScreen.js) -
+ * makanya tetap ada tombol override manual di layar ZIP Analyzer.
+ */
+export async function refineDetectedPrefix(prefix, entryNames, destDirUri) {
+  if (!prefix) return prefix;
+
+  const candidateUri = `${destDirUri.replace(/\/+$/, '')}/${prefix.replace(/\/+$/, '')}`;
+  const alreadyExists = (await FileSystem.getInfoAsync(candidateUri).catch(() => ({ exists: false }))).exists;
+  if (alreadyExists) return '';
+
+  const relNames = entryNames.filter((n) => n.startsWith(prefix)).map((n) => n.slice(prefix.length)).filter(Boolean);
+  const stats = countZipItems(relNames);
+  if (stats.files === 1 && stats.dirs === 0) return '';
+
+  return prefix;
 }

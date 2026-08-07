@@ -17,9 +17,10 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Button, Card, SectionTitle, HeroCard, InfoBanner } from '../components/UI';
+import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { exportDebugBundle } from '../logging/logger';
 
@@ -37,7 +38,7 @@ export default function SettingsScreen({ profile, onLogout, onOpenStorageManager
   const handleCopy = async () => {
     if (!log) return;
     await Clipboard.setStringAsync(log);
-    Alert.alert('Disalin', 'Log sudah disalin ke clipboard.');
+    appAlert('Disalin', 'Log sudah disalin ke clipboard.');
   };
 
   return (

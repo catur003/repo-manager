@@ -20,14 +20,15 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Card, SectionTitle, Tile, StatusTable } from '../components/UI';
+import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
 import { getRepoStatusSummary } from '../git/repoStatus';
 
 function soonAlert(fase, nama) {
-  Alert.alert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
+  appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
 export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree }) {
@@ -79,21 +80,25 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
     {
       icon: 'upload',
       label: 'Upload',
-      onPress: () => (active ? onOpenUpload(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+      onPress: () => (active ? onOpenUpload(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
     {
       icon: 'edit-3',
       label: 'Git Add & Commit',
-      onPress: () => (active ? onOpenWorkingTree(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+      onPress: () => (active ? onOpenWorkingTree(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
-    { icon: 'refresh-cw', label: 'Push & Pull', soon: 4, onPress: () => soonAlert(4, 'Push & Pull') },
+    {
+      icon: 'refresh-cw',
+      label: 'Push & Pull',
+      onPress: () => (active ? onOpenCompare(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
     { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
     { icon: 'bar-chart-2', label: 'Storage Manager', onPress: onOpenStorageManager },
     {
       icon: 'repeat',
       label: 'Compare Repo Aktif',
-      onPress: () => (active ? onOpenCompare(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+      onPress: () => (active ? onOpenCompare(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
     { icon: 'book-open', label: 'Belajar Git', soon: 8, onPress: () => soonAlert(8, 'Belajar Git') },
     { icon: 'file-text', label: 'Log & Debug', badge: 'versi awal', onPress: () => onNavigateTab('settings') },

@@ -93,6 +93,18 @@ export async function toggleFavorite(id) {
   return false;
 }
 
+/** Catat waktu Push/Pull terakhir - padanan record_repo_event() CLI.
+ * Dicari lewat `dir` (bukan `id`) karena syncRepo.js cuma pegang `dir`
+ * (gaya isomorphic-git), bukan id metadata. */
+export async function updateRepoEvent(dir, field) {
+  const store = await readStore();
+  const idx = store.repos.findIndex((r) => r.dir === dir);
+  if (idx >= 0) {
+    store.repos[idx][field] = Date.now();
+    await writeStore(store);
+  }
+}
+
 /**
  * Hapus dari daftar. `alsoDeleteData` menghapus folder di disk juga
  * (dipanggil terpisah oleh cloneRepo.js supaya modul ini tidak perlu tahu

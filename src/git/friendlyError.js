@@ -28,7 +28,14 @@ export function toFriendlyMessage(e) {
   if (raw.includes('403') && raw.includes('sso')) {
     return 'Repo ini perlu otorisasi tambahan dari admin organisasi kamu (SSO/SAML). Hubungi admin organisasi terkait.';
   }
-  if (raw.includes('non-fast-forward') || raw.includes('rejected')) {
+  // PENTING: dulu ini cuma cek raw.includes('rejected') sendirian - kata
+  // "rejected" ternyata juga muncul di error lain yang TIDAK ADA
+  // hubungannya dengan push (mis. wrapper "Unhandled Promise Rejection"
+  // dari error tak terduga lain saat clone). Akibatnya clone yang gagal
+  // karena sebab lain malah nampilin pesan "Push ditolak..." yang
+  // membingungkan. Sekarang wajib ada konteks "push" atau memang istilah
+  // git yang unik ('non-fast-forward') sebelum dianggap kasus ini.
+  if (raw.includes('non-fast-forward') || (raw.includes('push') && raw.includes('reject'))) {
     return 'Push ditolak — ada perubahan baru di GitHub. Pull dulu?';
   }
   if (raw.includes('merge conflict') || raw.includes('conflict')) {

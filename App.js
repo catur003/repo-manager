@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import 'react-native-get-random-values';
 
 import { isLoggedIn, getUserProfile, getToken, clearToken } from './src/auth/authStore';
@@ -10,11 +11,27 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import RepoListScreen from './src/screens/RepoListScreen';
 import LocalReposScreen from './src/screens/LocalReposScreen';
 import CompareScreen from './src/screens/CompareScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { COLORS } from './src/theme';
 
+// BUGFIX (7 Agustus 2026): sebelumnya tidak ada SafeAreaProvider sama
+// sekali, jadi konten nempel langsung di bawah status bar (kayak "gak ada
+// navbar" karena kepotong) dan TabBar cuma pakai padding statis (bisa
+// kepotong home indicator di HP tanpa tombol fisik). export default cuma
+// bungkus provider - AppShell yang pakai insets, karena hook useSafeAreaInsets
+// wajib dipanggil DI DALAM SafeAreaProvider.
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppShell />
+    </SafeAreaProvider>
+  );
+}
+
+function AppShell() {
+  const insets = useSafeAreaInsets();
   const [checking, setChecking] = useState(true);
   const [profile, setProfile] = useState(null);
   const [token, setToken] = useState(null);
@@ -72,7 +89,9 @@ export default function App() {
   }
 
   return (
-    <View style={styles.root}>
+    // insets.top di sini yang bikin konten tidak mepet ke status bar
+    // (BUGFIX item "gada navbar jadi terlalu ke atas").
+    <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <AuroraBackground />
 
@@ -80,15 +99,19 @@ export default function App() {
         {compareRepo ? (
           <CompareScreen repo={compareRepo} token={token} onBack={() => setCompareRepo(null)} />
         ) : tab === 'dashboard' ? (
-          <DashboardScreen profile={profile} onLogout={handleLogout} refreshKey={refreshKey} />
+          <DashboardScreen profile={profile} refreshKey={refreshKey} />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
-        ) : (
+        ) : tab === 'local' ? (
           <LocalReposScreen token={token} onOpenCompare={setCompareRepo} />
+        ) : (
+          <SettingsScreen profile={profile} onLogout={handleLogout} />
         )}
       </View>
 
-      {!compareRepo && <TabBar active={tab} onChange={setTab} />}
+      {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
+          indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
+      {!compareRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

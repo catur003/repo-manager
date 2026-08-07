@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import { Button, Card, StatusBadge, SectionTitle } from '../components/UI';
+import { Card, StatusBadge, SectionTitle } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
 import { getWorkingTreeStatus } from '../git/compareRepository';
 
-export default function DashboardScreen({ profile, onLogout, refreshKey }) {
+export default function DashboardScreen({ profile, refreshKey }) {
   const [active, setActive] = useState(null);
   const [status, setStatus] = useState('unknown');
   const [repoCount, setRepoCount] = useState(0);
@@ -55,8 +55,6 @@ export default function DashboardScreen({ profile, onLogout, refreshKey }) {
       </Card>
 
       <Text style={styles.summary}>{repoCount} repo tersimpan di HP ini.</Text>
-
-      <Button title="Logout" onPress={onLogout} variant="secondary" />
     </View>
   );
 }

@@ -16,11 +16,14 @@ const TABS = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'github', label: 'GitHub Repos' },
   { key: 'local', label: 'Local Repos' },
+  { key: 'settings', label: 'Settings' },
 ];
 
-export function TabBar({ active, onChange }) {
+export function TabBar({ active, onChange, bottomInset = 0 }) {
   return (
-    <View style={styles.bar}>
+    // paddingBottom gabung: base SPACING.lg + inset device (home
+    // indicator/gesture bar), bukan angka statis - lihat App.js.
+    <View style={[styles.bar, { paddingBottom: SPACING.lg + bottomInset }]}>
       {TABS.map((tab) => {
         const isActive = active === tab.key;
         return (
@@ -41,7 +44,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.cardBorder,
     paddingTop: SPACING.sm,
-    paddingBottom: SPACING.lg,
   },
   tab: { flex: 1, alignItems: 'center', gap: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'transparent' },

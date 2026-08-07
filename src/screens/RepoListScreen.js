@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, Alert, Pressable } from 'react-native';
 import { Button, Card, ErrorBanner } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { listUserRepos } from '../git/reposApi';
 import { preflightClone, doClone } from '../git/cloneRepo';
 import { logError } from '../logging/logger';
+import { formatSize } from '../utils/format';
 
 export default function RepoListScreen({ token, onCloned }) {
   const [repos, setRepos] = useState([]);
@@ -92,7 +93,7 @@ export default function RepoListScreen({ token, onCloned }) {
           <View style={styles.metaRow}>
             <Text style={styles.metaText}>Branch: {selected.defaultBranch}</Text>
             <Text style={styles.metaText}>{selected.private ? 'Private' : 'Public'}</Text>
-            <Text style={styles.metaText}>{Math.round((selected.sizeKb || 0) / 1024)}MB</Text>
+            <Text style={styles.metaText}>{formatSize(selected.sizeKb)}</Text>
           </View>
 
           {progress ? (
@@ -131,10 +132,15 @@ export default function RepoListScreen({ token, onCloned }) {
           contentContainerStyle={{ paddingBottom: SPACING.xl }}
           ListEmptyComponent={<Text style={styles.emptyText}>Belum ada repo, atau tidak cocok dengan pencarian.</Text>}
           renderItem={({ item }) => (
-            <Card style={{ marginBottom: SPACING.sm }}>
-              <Text style={styles.repoName} onPress={() => openDetail(item)}>{item.fullName}</Text>
-              <Text style={styles.repoMeta}>{item.private ? 'Private' : 'Public'} · {item.defaultBranch}</Text>
-            </Card>
+            // BUGFIX: onPress dulu nempel di <Text> doang, jadi area yang
+            // bisa di-tap cuma teks nama repo - bukan seluruh baris/card.
+            // Sekarang Pressable membungkus seluruh Card.
+            <Pressable onPress={() => openDetail(item)}>
+              <Card style={{ marginBottom: SPACING.sm }}>
+                <Text style={styles.repoName}>{item.fullName}</Text>
+                <Text style={styles.repoMeta}>{item.private ? 'Private' : 'Public'} · {item.defaultBranch}</Text>
+              </Card>
+            </Pressable>
           )}
         />
       )}

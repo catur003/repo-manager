@@ -108,13 +108,15 @@ export async function getRepoStatusSummary(repo) {
     behind,
     lastCommit,
     changedFiles,
-    lastPush: repo.lastPush ? formatDateTime(new Date(repo.lastPush)) : '-',
-    lastPull: repo.lastPull ? formatDateTime(new Date(repo.lastPull)) : '-',
+    lastPush: repo.lastPushByBranch?.[branch] ? formatDateTime(new Date(repo.lastPushByBranch[branch])) : '-',
+    lastPull: repo.lastPullByBranch?.[branch] ? formatDateTime(new Date(repo.lastPullByBranch[branch])) : '-',
     // Raw timestamp (bukan string terformat) + flag "baru-baru ini" -
     // buat banner warna di Dashboard (permintaan Zen: info push/pull
-    // gampang kelewat kalau ga teliti, harus lebih kelihatan).
-    lastPushMs: repo.lastPush || null,
-    lastPullMs: repo.lastPull || null,
+    // gampang kelewat kalau ga teliti, harus lebih kelihatan). SEKARANG
+    // per-branch (BUGFIX) - dulu 1 angka buat seluruh repo, salah
+    // nampilin "branch X baru di-push" padahal yang di-push branch lain.
+    lastPushMs: repo.lastPushByBranch?.[branch] || null,
+    lastPullMs: repo.lastPullByBranch?.[branch] || null,
     now: formatDateTime(),
   };
 }

@@ -78,7 +78,7 @@ export async function pushRepo(dir, branch, token) {
       throw new Error(result.error || 'Push gagal');
     }
     await logActivity(`Push berhasil (${branch})`);
-    await updateRepoEvent(dir, 'lastPush');
+    await updateRepoEvent(dir, 'lastPush', branch);
     const afterOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
     const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);
     return { rejected: false, ok: true, changedFiles };
@@ -100,7 +100,7 @@ export async function forcePushRepo(dir, branch, token) {
   try {
     await git.push({ fs, http, dir, ref: branch, remoteRef: branch, force: true, onAuth: () => ({ username: token }) });
     await logActivity(`Force Push berhasil (${branch})`);
-    await updateRepoEvent(dir, 'lastPush');
+    await updateRepoEvent(dir, 'lastPush', branch);
   } catch (e) {
     await logError('Force Push gagal', e?.message);
     throw new Error(toFriendlyMessage(e));
@@ -181,7 +181,7 @@ export async function pullRepo(dir, branch, token, author) {
 
   invalidateStatusCache(dir);
   await logActivity(`Pull berhasil (${branch})`);
-  await updateRepoEvent(dir, 'lastPull');
+  await updateRepoEvent(dir, 'lastPull', branch);
 
   const afterOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
   const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);

@@ -17,15 +17,26 @@ function authHeaders(token) {
   return { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' };
 }
 
-async function githubFetch(url, token) {
+async function githubFetch(url, token, opts = {}) {
   let res;
   try {
-    res = await fetch(url, { headers: authHeaders(token) });
+    res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers: { ...authHeaders(token), ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
   } catch (e) {
     await logError('Network error saat fetch GitHub API', e?.message);
     throw new ReposApiError(toFriendlyMessage(e));
   }
   if (!res.ok) {
+    let detail = '';
+    try {
+      const errJson = await res.json();
+      detail = errJson?.message || '';
+    } catch {
+      /* body bukan JSON atau kosong - biarin detail kosong */
+    }
     if (res.status === 401) {
       await logError('Fetch GitHub API 401', url);
       throw new ReposApiError(toFriendlyMessage('401 unauthorized'));
@@ -36,9 +47,18 @@ async function githubFetch(url, token) {
       await logError(`Fetch GitHub API 403${isRateLimit ? ' (rate limit)' : ''}`, url);
       throw new ReposApiError(toFriendlyMessage(isRateLimit ? '403 rate limit' : '403'));
     }
-    await logError(`Fetch GitHub API gagal, status ${res.status}`, url);
-    throw new ReposApiError(toFriendlyMessage(`http ${res.status}`));
+    if (res.status === 422) {
+      // Validation error GitHub - biasanya pesannya udah jelas dalam
+      // bahasa Inggris (mis. "No commits between X and Y", "A pull
+      // request already exists") - tampilkan apa adanya, gak perlu
+      // diterjemahkan lewat toFriendlyMessage yang generik.
+      await logError('Fetch GitHub API 422 (validation)', `${url} - ${detail}`);
+      throw new ReposApiError(detail || 'Permintaan ditolak GitHub (data tidak valid).');
+    }
+    await logError(`Fetch GitHub API gagal, status ${res.status}`, `${url} - ${detail}`);
+    throw new ReposApiError(detail || toFriendlyMessage(`http ${res.status}`));
   }
+  if (res.status === 204) return null; // No Content (mis. DELETE berhasil)
   return res.json();
 }
 
@@ -85,4 +105,4 @@ export async function getRepoDetail(token, owner, name) {
   };
 }
 
-export { ReposApiError };
+export { ReposApiError, githubFetch };

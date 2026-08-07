@@ -93,14 +93,21 @@ export async function toggleFavorite(id) {
   return false;
 }
 
-/** Catat waktu Push/Pull terakhir - padanan record_repo_event() CLI.
- * Dicari lewat `dir` (bukan `id`) karena syncRepo.js cuma pegang `dir`
- * (gaya isomorphic-git), bukan id metadata. */
-export async function updateRepoEvent(dir, field) {
+/**
+ * Catat waktu Push/Pull terakhir - padanan record_repo_event() CLI.
+ * BUGFIX (7 Agustus 2026, laporan Zen): dulu 1 angka buat SELURUH repo
+ * (`repo.lastPush`), jadi kalau push branch A terus checkout ke branch
+ * B, Dashboard salah nampilin "branch B baru di-push" padahal yang
+ * di-push itu A. Sekarang disimpen PER-BRANCH:
+ * `repo.lastPushByBranch = { "spp3": 173..., "master": null }`.
+ */
+export async function updateRepoEvent(dir, field, branch) {
   const store = await readStore();
   const idx = store.repos.findIndex((r) => r.dir === dir);
   if (idx >= 0) {
-    store.repos[idx][field] = Date.now();
+    const mapField = `${field}ByBranch`;
+    const current = store.repos[idx][mapField] || {};
+    store.repos[idx][mapField] = { ...current, [branch]: Date.now() };
     await writeStore(store);
   }
 }

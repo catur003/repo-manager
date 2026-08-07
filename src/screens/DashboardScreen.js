@@ -21,7 +21,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { Card, SectionTitle, Tile, StatusTable, SuccessBanner } from '../components/UI';
+import { Button, Card, SectionTitle, Tile, StatusTable, SuccessBanner } from '../components/UI';
 import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
@@ -115,7 +115,6 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
     {
       icon: 'git-merge',
       label: 'Merge & PR',
-      badge: 'PR blm ada',
       onPress: () => (active ? onOpenMerge(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
@@ -141,9 +140,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
 
       {!loading && summary?.lastPushMs && Date.now() - summary.lastPushMs < RECENT_MS ? (
         <SuccessBanner>
-          Branch "{summary.branch}" baru saja di-push ({timeAgo(summary.lastPushMs)}) - cek di GitHub kalau
-          perlu.
+          Branch "{summary.branch}" baru saja di-push ({timeAgo(summary.lastPushMs)}){summary.branch !== active?.defaultBranch ? ' - siap dibuatin Pull Request kalau perlu.' : '.'}
         </SuccessBanner>
+      ) : null}
+      {!loading && summary?.lastPushMs && Date.now() - summary.lastPushMs < RECENT_MS && summary.branch !== active?.defaultBranch ? (
+        <Button title="Buat Pull Request" variant="secondary" onPress={() => onOpenMerge(active)} style={{ marginTop: -SPACING.sm, marginBottom: SPACING.md }} />
       ) : null}
       {!loading && summary?.lastPullMs && Date.now() - summary.lastPullMs < RECENT_MS ? (
         <SuccessBanner>Branch "{summary.branch}" baru saja di-pull ({timeAgo(summary.lastPullMs)}).</SuccessBanner>

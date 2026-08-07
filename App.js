@@ -169,6 +169,7 @@ function AppShell() {
         ) : mergeRepo ? (
           <MergeScreen
             repo={mergeRepo}
+            token={token}
             author={{ name: profile.name, email: profile.email }}
             onBack={() => { setMergeRepo(null); bumpRefresh(); }}
           />

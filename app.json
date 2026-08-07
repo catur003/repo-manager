@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "RepoManager",
+    "slug": "repo-manager-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f0f9ff",
+    "scheme": "repomanager",
+    "android": {
+      "package": "id.zen.repomanager"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}

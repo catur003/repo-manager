@@ -131,6 +131,7 @@ export default function RepoListScreen({ token, onCloned }) {
           ListEmptyComponent={<Text style={styles.emptyText}>Belum ada repo, atau tidak cocok dengan pencarian.</Text>}
           renderItem={({ item }) => (
             <PillRow
+              icon={item.private ? 'lock' : 'package'}
               label={item.fullName}
               sublabel={`${item.private ? 'Private' : 'Public'} · ${item.defaultBranch}`}
               onPress={() => openDetail(item)}

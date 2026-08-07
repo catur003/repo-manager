@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, TextInput, Linking } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { Feather } from '@expo/vector-icons';
 import { Button, StatusBadge, PillRow } from '../components/UI';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import {
@@ -15,7 +16,7 @@ import { getWorkingTreeStatus } from '../git/compareRepository';
 import { logActivity, logError } from '../logging/logger';
 import { timeAgo } from '../utils/format';
 
-export default function LocalReposScreen({ token, onOpenCompare }) {
+export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload }) {
   const [repos, setRepos] = useState([]);
   const [statuses, setStatuses] = useState({}); // id -> 'clean' | 'modified'
   const [activeId, setActiveId] = useState(null);
@@ -138,14 +139,13 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
         renderItem={({ item }) => (
           <View style={styles.pillCard}>
             <PillRow
+              icon="package"
               tone={item.id === activeId ? 'accent' : 'default'}
               label={item.fullName}
               sublabel={`${item.defaultBranch} · dibuka ${timeAgo(item.lastOpenedAt)}${item.id === activeId ? ' · Aktif' : ''}`}
               right={
                 <Pressable onPress={() => handleFavorite(item)} hitSlop={8}>
-                  <Text style={[styles.favText, item.favorite && styles.favTextActive]}>
-                    {item.favorite ? 'Favorit' : 'Jadikan Favorit'}
-                  </Text>
+                  <Feather name="star" size={20} color={item.favorite ? COLORS.amber : COLORS.inkFaint} />
                 </Pressable>
               }
             />
@@ -159,6 +159,7 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
             <View style={styles.actionsRow}>
               <Button title="Gunakan" onPress={() => handleUse(item)} variant={item.id === activeId ? 'secondary' : 'primary'} style={styles.actionBtn} />
               <Button title="Compare" variant="secondary" onPress={() => onOpenCompare(item)} style={styles.actionBtn} />
+              <Button title="Upload" variant="secondary" onPress={() => onOpenUpload(item)} style={styles.actionBtn} />
               <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={styles.actionBtn} />
             </View>
             <Button title="Lihat di GitHub" variant="secondary" onPress={() => handleOpenGithub(item)} />
@@ -191,8 +192,6 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     marginBottom: SPACING.sm + 2,
   },
-  favText: { fontSize: 12, fontWeight: '700', color: COLORS.inkFaint },
-  favTextActive: { color: COLORS.amber },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.xs, marginHorizontal: SPACING.sm },
   actionsRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm, marginHorizontal: SPACING.sm },
   actionBtn: { flex: 1, paddingHorizontal: 8 },

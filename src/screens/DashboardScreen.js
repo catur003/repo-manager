@@ -30,7 +30,7 @@ function soonAlert(fase, nama) {
   Alert.alert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -73,22 +73,27 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   // Aktivitas/Export Debug Log) sudah gak jadi menu terpisah - makanya
   // dari 15 tinggal 13. Urutan ngikutin urutan menu CLI aslinya.
   const menuTiles = [
-    { label: 'Repository (GitHub)', onPress: () => onNavigateTab('github') },
-    { label: 'Local Repos', onPress: () => onNavigateTab('local') },
-    { label: 'Branch', soon: 2, onPress: () => soonAlert(2, 'Branch') },
-    { label: 'Upload', soon: 6, onPress: () => soonAlert(6, 'Upload') },
-    { label: 'Git Add & Commit', soon: 3, onPress: () => soonAlert(3, 'Git Add & Commit') },
-    { label: 'Push & Pull', soon: 4, onPress: () => soonAlert(4, 'Push & Pull') },
-    { label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
-    { label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
-    { label: 'Storage Manager', onPress: onOpenStorageManager },
+    { icon: 'github', label: 'Repository (GitHub)', onPress: () => onNavigateTab('github') },
+    { icon: 'folder', label: 'Local Repos', onPress: () => onNavigateTab('local') },
+    { icon: 'git-branch', label: 'Branch', soon: 2, onPress: () => soonAlert(2, 'Branch') },
     {
+      icon: 'upload',
+      label: 'Upload',
+      onPress: () => (active ? onOpenUpload(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
+    { icon: 'edit-3', label: 'Git Add & Commit', soon: 3, onPress: () => soonAlert(3, 'Git Add & Commit') },
+    { icon: 'refresh-cw', label: 'Push & Pull', soon: 4, onPress: () => soonAlert(4, 'Push & Pull') },
+    { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
+    { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
+    { icon: 'bar-chart-2', label: 'Storage Manager', onPress: onOpenStorageManager },
+    {
+      icon: 'repeat',
       label: 'Compare Repo Aktif',
       onPress: () => (active ? onOpenCompare(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
-    { label: 'Belajar Git', soon: 8, onPress: () => soonAlert(8, 'Belajar Git') },
-    { label: 'Log & Debug', badge: 'versi awal', onPress: () => onNavigateTab('settings') },
-    { label: 'Pengaturan', onPress: () => onNavigateTab('settings') },
+    { icon: 'book-open', label: 'Belajar Git', soon: 8, onPress: () => soonAlert(8, 'Belajar Git') },
+    { icon: 'file-text', label: 'Log & Debug', badge: 'versi awal', onPress: () => onNavigateTab('settings') },
+    { icon: 'settings', label: 'Pengaturan', onPress: () => onNavigateTab('settings') },
   ];
 
   return (
@@ -103,7 +108,7 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       <SectionTitle>Aksi Cepat</SectionTitle>
       <View style={styles.grid}>
         {menuTiles.map((t) => (
-          <Tile key={t.label} label={t.label} badge={t.soon ? `Fase ${t.soon}` : t.badge} soon={!!t.soon} onPress={t.onPress} />
+          <Tile key={t.label} icon={t.icon} label={t.label} badge={t.soon ? `Fase ${t.soon}` : t.badge} soon={!!t.soon} onPress={t.onPress} />
         ))}
       </View>
     </ScrollView>

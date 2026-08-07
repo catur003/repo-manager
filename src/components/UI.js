@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, View, Pressable } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../theme';
 
 const VARIANT_BG = {
@@ -82,14 +83,18 @@ export function SectionTitle({ children, style }) {
 
 /**
  * PillRow - baris list bulat penuh (stadium shape), gaya "File Viewer"
- * zenvps: label + sublabel, satu baris per item, radius jauh lebih besar
- * dari Card biasa. TIDAK pakai icon/emoji apa pun (keputusan Zen 7
- * Agustus 2026: "jangan pernah pake icon di seluruh project").
+ * zenvps: icon (Feather, vector - bukan emoji) di lingkaran kiri + label,
+ * satu baris per item.
  */
-export function PillRow({ label, sublabel, onPress, right, tone = 'default' }) {
+export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default' }) {
   const Wrapper = onPress ? Pressable : View;
   return (
     <Wrapper onPress={onPress} style={({ pressed }) => [pillStyles.row, tone === 'accent' && pillStyles.rowAccent, pressed && onPress ? { opacity: 0.7 } : null]}>
+      {icon ? (
+        <View style={[pillStyles.iconWrap, tone === 'accent' && pillStyles.iconWrapAccent]}>
+          <Feather name={icon} size={16} color={tone === 'accent' ? COLORS.onAccent : COLORS.accent} />
+        </View>
+      ) : null}
       <View style={{ flex: 1 }}>
         <Text style={pillStyles.label} numberOfLines={1}>{label}</Text>
         {sublabel ? <Text style={pillStyles.sublabel} numberOfLines={1}>{sublabel}</Text> : null}
@@ -101,14 +106,19 @@ export function PillRow({ label, sublabel, onPress, right, tone = 'default' }) {
 
 /**
  * Tile - kartu menu persegi buat grid "Aksi Cepat" ala zenvps Dashboard.
- * Teks murni, tidak ada icon/emoji (lihat catatan PillRow di atas).
+ * Icon Feather (vector) di atas label - bukan emoji.
  * `soon` = fitur belum dibangun (bukan dead-end diam-diam - tetap bisa
  * di-tap tapi kasih tahu status fase-nya, sama pola dengan tombol
  * Push/Pull di CompareScreen).
  */
-export function Tile({ label, badge, soon, onPress }) {
+export function Tile({ icon, label, badge, soon, onPress }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [tileStyles.tile, pressed && { opacity: 0.75 }, soon && tileStyles.tileSoon]}>
+      {icon ? (
+        <View style={[tileStyles.iconWrap, soon && tileStyles.iconWrapSoon]}>
+          <Feather name={icon} size={18} color={soon ? COLORS.inkFaint : COLORS.accent} />
+        </View>
+      ) : null}
       <Text style={tileStyles.label} numberOfLines={2}>{label}</Text>
       {badge ? <Text style={tileStyles.badge}>{badge}</Text> : null}
     </Pressable>
@@ -239,12 +249,21 @@ const pillStyles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    paddingVertical: 12,
-    paddingHorizontal: SPACING.md + 2,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.sm + 2,
     marginBottom: SPACING.sm,
     gap: SPACING.sm + 2,
   },
   rowAccent: { borderColor: COLORS.accent, backgroundColor: COLORS.accentSoft },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapAccent: { backgroundColor: COLORS.accent },
   label: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sublabel: { fontSize: 12, color: COLORS.inkMuted, marginTop: 2 },
 });
@@ -260,10 +279,20 @@ const tileStyles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 64,
+    minHeight: 76,
     marginBottom: SPACING.sm + 2,
   },
   tileSoon: { opacity: 0.6 },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  iconWrapSoon: { backgroundColor: COLORS.divider },
   label: { fontSize: 11, fontWeight: '700', color: COLORS.ink, textAlign: 'center', lineHeight: 14 },
   badge: { fontSize: 9, fontWeight: '700', color: COLORS.inkFaint, marginTop: 4, textAlign: 'center' },
 });

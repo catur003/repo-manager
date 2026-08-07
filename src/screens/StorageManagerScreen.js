@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, RefreshControl } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { Feather } from '@expo/vector-icons';
 import { Button, Card, StatusBadge, SectionTitle, InfoBanner, PillRow } from '../components/UI';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { listLocalRepos, removeLocalRepo } from '../git/localRepos';
@@ -149,6 +150,7 @@ export default function StorageManagerScreen({ onBack }) {
           renderItem={({ item }) => (
             <View style={styles.pillCard}>
               <PillRow
+                icon="folder"
                 tone={item.unpushed ? 'accent' : 'default'}
                 label={item.fullName}
                 sublabel={`${formatSize(item.sizeBytes / 1024)} · dibuka ${timeAgo(item.lastOpenedAt)}`}
@@ -166,6 +168,7 @@ export default function StorageManagerScreen({ onBack }) {
           jangan pernah pake icon). */}
       {!loading ? (
         <Pressable onPress={load} style={styles.fab} hitSlop={8}>
+          <Feather name="refresh-cw" size={16} color={COLORS.accent} />
           <Text style={styles.fabText}>Refresh</Text>
         </Pressable>
       ) : null}
@@ -214,6 +217,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: SPACING.lg,
     bottom: SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingVertical: 12,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.pill,

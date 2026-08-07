@@ -72,7 +72,7 @@ async function statLike(path) {
  * https://github.com/expo/expo/issues/2050) - makanya dicek ulang lewat
  * getInfoAsync sebelum dianggap gagal beneran.
  */
-async function mkdirRecursive(uri) {
+export async function mkdirRecursive(uri) {
   try {
     await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
   } catch (e) {

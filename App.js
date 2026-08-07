@@ -13,6 +13,7 @@ import LocalReposScreen from './src/screens/LocalReposScreen';
 import CompareScreen from './src/screens/CompareScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import StorageManagerScreen from './src/screens/StorageManagerScreen';
+import UploadScreen from './src/screens/UploadScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { COLORS } from './src/theme';
@@ -40,6 +41,7 @@ function AppShell() {
   const [tab, setTab] = useState('dashboard');
   const [compareRepo, setCompareRepo] = useState(null); // repo yang lagi di-compare, null = tidak ada overlay
   const [storageManagerOpen, setStorageManagerOpen] = useState(false);
+  const [uploadRepo, setUploadRepo] = useState(null); // repo yang lagi dibuka buat Upload, null = tidak ada overlay
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ function AppShell() {
     setTab('dashboard');
     setCompareRepo(null);
     setStorageManagerOpen(false);
+    setUploadRepo(null);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
@@ -103,6 +106,8 @@ function AppShell() {
           <CompareScreen repo={compareRepo} token={token} onBack={() => setCompareRepo(null)} />
         ) : storageManagerOpen ? (
           <StorageManagerScreen onBack={() => setStorageManagerOpen(false)} />
+        ) : uploadRepo ? (
+          <UploadScreen repo={uploadRepo} onBack={() => setUploadRepo(null)} />
         ) : tab === 'dashboard' ? (
           <DashboardScreen
             profile={profile}
@@ -110,11 +115,12 @@ function AppShell() {
             onNavigateTab={setTab}
             onOpenCompare={setCompareRepo}
             onOpenStorageManager={() => setStorageManagerOpen(true)}
+            onOpenUpload={setUploadRepo}
           />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
         ) : tab === 'local' ? (
-          <LocalReposScreen token={token} onOpenCompare={setCompareRepo} />
+          <LocalReposScreen token={token} onOpenCompare={setCompareRepo} onOpenUpload={setUploadRepo} />
         ) : (
           <SettingsScreen profile={profile} onLogout={handleLogout} onOpenStorageManager={() => setStorageManagerOpen(true)} />
         )}
@@ -122,7 +128,7 @@ function AppShell() {
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && !storageManagerOpen && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && !uploadRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

@@ -22,6 +22,22 @@ import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
 import { checkoutBranch } from './branchOps';
 import { invalidateStatusCache } from './statusCache';
+import { diffCommitFiles } from './diffTrees';
+
+/**
+ * Preview file yang bakal beda kalau source digabung ke target -
+ * permintaan Zen ("merge ini bisa detect mana yang baru mana yang
+ * nggak?"). Dihitung dari diff 2 tip commit (source vs target) - ini
+ * pendekatan (approx merge diff), bukan hasil 3-way merge beneran (yang
+ * baru ketauan pas benar-benar di-merge), tapi udah cukup buat kasih
+ * gambaran sebelum eksekusi.
+ */
+export async function previewMergeDiff(dir, source, target) {
+  const sourceOid = await git.resolveRef({ fs, dir, ref: source }).catch(() => null);
+  const targetOid = await git.resolveRef({ fs, dir, ref: target }).catch(() => null);
+  if (!sourceOid || !targetOid) return { files: [], remaining: 0, total: 0 };
+  return diffCommitFiles(dir, targetOid, sourceOid);
+}
 
 /**
  * Merge Lokal - checkout ke target dulu (persis CLI), baru merge source

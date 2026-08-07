@@ -43,8 +43,31 @@ export async function listRemoteBranches(dir, remote = 'origin') {
  * diterjemahkan sama kayak CLI (biasanya file runtime kayak config/log
  * yang ke-generate ulang tiap app jalan, bukan perubahan penting).
  */
+/**
+ * Checkout - padanan checkout_branch(). Pesan "would be overwritten"
+ * diterjemahkan sama kayak CLI (biasanya file runtime kayak config/log
+ * yang ke-generate ulang tiap app jalan, bukan perubahan penting).
+ *
+ * BUGFIX (7 Agustus 2026, laporan Zen): dulu saya kira `git.checkout()`
+ * isomorphic-git otomatis bikin branch lokal baru kalau namanya cuma ada
+ * di `refs/remotes/origin/<nama>` (persis kebiasaan `git checkout` asli)
+ * - TERNYATA ENGGAK, dicoba langsung sama Zen dan gagal (harus manual
+ * bikin branch + pull). Sekarang dicek eksplisit: kalau branch lokal
+ * belum ada tapi ada versi remote-nya, bikin dulu branch lokal yang
+ * nunjuk ke situ (`git.branch({object: 'refs/remotes/origin/<nama>'})`,
+ * `object` terima ref apa aja - dikonfirmasi dari docs resmi) baru
+ * checkout - bukan ngarep isomorphic-git ngerjain otomatis.
+ */
 export async function checkoutBranch(dir, branchName) {
   try {
+    const existsLocally = await git.resolveRef({ fs, dir, ref: `refs/heads/${branchName}` }).catch(() => null);
+    if (!existsLocally) {
+      const remoteOid = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${branchName}` }).catch(() => null);
+      if (remoteOid) {
+        await git.branch({ fs, dir, ref: branchName, object: `refs/remotes/origin/${branchName}` });
+        await logActivity(`Branch lokal ${branchName} dibuat ulang dari origin/${branchName}`);
+      }
+    }
     await git.checkout({ fs, dir, ref: branchName });
     invalidateStatusCache(dir);
     await logActivity(`Branch ${branchName} aktif`);
@@ -110,9 +133,19 @@ export async function isBranchMerged(dir, branchName, intoBranch) {
  * merge" via isBranchMerged() (lihat catatan di atas). `force=true`
  * dipanggil dari UI setelah user eksplisit konfirmasi force delete. */
 export async function deleteBranchLocal(dir, branchName, force = false) {
+  // BUGFIX (7 Agustus 2026, laporan Zen - kejadian nyata: hapus branch
+  // aktif bikin HEAD nunjuk ke branch yang udah gak ada, Dashboard &
+  // Branch screen jadi gak sinkron). isomorphic-git's deleteBranch() TIDAK
+  // punya proteksi ini sendiri (dikonfirmasi di docs resminya) - git asli
+  // nolak keras ("Cannot delete branch checked out at..."), jadi kita
+  // yang cek manual sebelum manggil deleteBranch.
+  const current = await getCurrentBranch(dir);
+  if (current && current === branchName) {
+    return { isCurrent: true };
+  }
+
   if (!force) {
-    const current = await getCurrentBranch(dir);
-    const mergeCheckTarget = current && current !== branchName ? current : null;
+    const mergeCheckTarget = current || null;
     if (mergeCheckTarget) {
       const merged = await isBranchMerged(dir, branchName, mergeCheckTarget);
       if (!merged) {

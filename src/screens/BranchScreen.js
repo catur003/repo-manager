@@ -100,6 +100,13 @@ export default function BranchScreen({ repo, token, onBack }) {
     try {
       const result = await deleteBranchLocal(repo.dir, name, force);
       setBusy(false);
+      if (result.isCurrent) {
+        appAlert(
+          'Tidak Bisa Dihapus',
+          `"${name}" lagi aktif/dipakai sekarang. Checkout ke branch lain dulu, baru bisa hapus branch ini.`
+        );
+        return;
+      }
       if (result.needsForce) {
         appAlert(
           'Branch Belum Sepenuhnya Di-merge',
@@ -171,6 +178,21 @@ export default function BranchScreen({ repo, token, onBack }) {
     const data = await getBranchSyncData(repo.dir);
     setSyncData(data);
     setBusy(false);
+  };
+
+  const handleCheckoutRemote = async (name) => {
+    setBusy(true);
+    setBusyLabel(`Checkout ke ${name}...`);
+    try {
+      await checkoutBranch(repo.dir, name);
+      appAlert('Berhasil', `Branch lokal "${name}" dibuat dari GitHub dan sekarang aktif.`);
+      await refreshSync();
+      await load();
+    } catch (e) {
+      appAlert('Checkout Gagal', e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleDeleteRemote = (name) => {
@@ -266,7 +288,10 @@ export default function BranchScreen({ repo, token, onBack }) {
         {syncData?.onlyRemote.map((b) => (
           <View key={b.name} style={{ marginBottom: SPACING.sm }}>
             <PillRow icon="git-branch" tone="accent" label={b.name} sublabel="Hanya di GitHub" />
-            <Button title="Hapus dari GitHub" variant="danger" onPress={() => handleDeleteRemote(b.name)} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button title="Checkout" variant="success" onPress={() => handleCheckoutRemote(b.name)} style={{ flex: 1 }} />
+              <Button title="Hapus dari GitHub" variant="danger" onPress={() => handleDeleteRemote(b.name)} style={{ flex: 1 }} />
+            </View>
           </View>
         ))}
         <Button title="Fetch Ulang" variant="secondary" onPress={openSync} />

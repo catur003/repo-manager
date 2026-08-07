@@ -11,13 +11,13 @@
  * 4.6), TIDAK butuh server apa pun.
  */
 
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TextInput } from 'react-native';
-import { Button, InfoBanner, SuccessBanner, PillRow, ErrorBanner, TopBar } from '../components/UI';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput } from 'react-native';
+import { Button, InfoBanner, SuccessBanner, PillRow, ErrorBanner, SectionTitle, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { listLocalBranches, deleteBranchLocal, getCurrentBranch } from '../git/branchOps';
-import { mergeLocal } from '../git/mergeOps';
+import { mergeLocal, previewMergeDiff } from '../git/mergeOps';
 import { getLastCommit } from '../git/workingTree';
 import { createPullRequest, listOpenPullRequests, mergePullRequest } from '../git/pullRequestApi';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -39,6 +39,30 @@ export default function MergeScreen({ repo, token, author, onBack }) {
   const [prResult, setPrResult] = useState(null);
 
   const [openPRs, setOpenPRs] = useState([]);
+  const [preview, setPreview] = useState(null); // { files, remaining, total } | null
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Otomatis muat preview begitu source+target dua-duanya udah dipilih
+  // (bukan cuma pas Merge Lokal, tapi juga di alur Buat PR - biar keliatan
+  // dulu apa yang beda sebelum submit).
+  useEffect(() => {
+    if (!source || !target || source === target) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    previewMergeDiff(repo.dir, source, target)
+      .then((res) => {
+        if (!cancelled) setPreview(res);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, target, repo]);
 
   useBackHandler(() => {
     if (mode !== 'menu') {
@@ -57,9 +81,20 @@ export default function MergeScreen({ repo, token, author, onBack }) {
     setBranches(list);
   };
 
+  // BUGFIX (7 Agustus 2026, laporan Zen): pilih source yang kebetulan
+  // sama kayak target yang udah dipilih duluan gak nge-reset target -
+  // bisa kejadian source===target lolos ke tombol Merge. Sekarang
+  // otomatis dikosongin kalau ketiban gitu, wajib pilih ulang.
   const pickSource = () => {
     appAlert('Pilih Source Branch', 'Branch yang akan digabung:', [
-      ...branches.map((b) => ({ text: b, style: 'primary', onPress: () => setSource(b) })),
+      ...branches.map((b) => ({
+        text: b,
+        style: 'primary',
+        onPress: () => {
+          setSource(b);
+          if (target === b) setTarget(null);
+        },
+      })),
       { text: 'Batal', style: 'cancel' },
     ]);
   };
@@ -138,8 +173,14 @@ export default function MergeScreen({ repo, token, author, onBack }) {
       getLastCommit(repo.dir),
     ]);
     setBranches(list);
-    setSource(current || repo.defaultBranch);
-    setTarget(list.find((b) => b !== current) || repo.defaultBranch);
+    const resolvedSource = current || repo.defaultBranch;
+    setSource(resolvedSource);
+    // BUGFIX: dulu fallback ke repo.defaultBranch kalau cuma ada 1 branch
+    // - bisa jadi sama kayak source (defaultBranch === current). Sekarang
+    // dibiarin null (user harus pilih manual / bakal ke-blok tombol
+    // submit-nya) daripada diam-diam sama.
+    const otherBranch = list.find((b) => b !== resolvedSource);
+    setTarget(otherBranch || null);
     setPrTitle(lastCommit?.message || '');
     setPrBody('');
     setPrResult(null);
@@ -285,8 +326,25 @@ export default function MergeScreen({ repo, token, author, onBack }) {
                 onPress={source ? pickTarget : undefined}
                 disabled={!source}
               />
+
+              {previewLoading ? (
+                <InfoBanner>Menghitung file yang beda...</InfoBanner>
+              ) : preview ? (
+                preview.total === 0 ? (
+                  <InfoBanner>Tidak ada file yang beda - "{source}" dan "{target}" sudah sama persis.</InfoBanner>
+                ) : (
+                  <View style={styles.previewCard}>
+                    <SectionTitle>File yang beda ({preview.total})</SectionTitle>
+                    {preview.files.map((f) => (
+                      <PillRow key={f} icon="file" label={f} />
+                    ))}
+                    {preview.remaining > 0 ? <Text style={styles.previewMore}>... dan {preview.remaining} file lainnya</Text> : null}
+                  </View>
+                )
+              ) : null}
+
               <ErrorBanner message={error} />
-              <Button title="Lanjutkan Merge" onPress={doMerge} disabled={!source || !target} />
+              <Button title="Lanjutkan Merge" onPress={doMerge} disabled={!source || !target || source === target} />
             </>
           )}
         </ScrollView>
@@ -308,6 +366,19 @@ export default function MergeScreen({ repo, token, author, onBack }) {
             <>
               <PillRow icon="git-commit" tone="accent" label={`Source: ${source || '-'}`} onPress={pickSource} />
               <PillRow icon="git-branch" tone="accent" label={`Base/Target: ${target || '-'}`} onPress={pickTarget} />
+
+              {previewLoading ? (
+                <InfoBanner>Menghitung file yang beda...</InfoBanner>
+              ) : preview && preview.total > 0 ? (
+                <View style={styles.previewCard}>
+                  <SectionTitle>File yang beda ({preview.total})</SectionTitle>
+                  {preview.files.map((f) => (
+                    <PillRow key={f} icon="file" label={f} />
+                  ))}
+                  {preview.remaining > 0 ? <Text style={styles.previewMore}>... dan {preview.remaining} file lainnya</Text> : null}
+                </View>
+              ) : null}
+
               <TextInput
                 style={styles.input}
                 placeholder="Judul Pull Request"
@@ -373,4 +444,6 @@ const styles = StyleSheet.create({
     color: COLORS.ink,
     marginBottom: SPACING.sm,
   },
+  previewCard: { marginBottom: SPACING.sm },
+  previewMore: { fontSize: 12, color: COLORS.inkFaint, marginTop: 4, marginBottom: SPACING.sm },
 });

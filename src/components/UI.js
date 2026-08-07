@@ -24,6 +24,7 @@ const VARIANT_BG = {
   primary: COLORS.accent,
   danger: COLORS.red,
   warning: COLORS.amber,
+  success: COLORS.green,
   secondary: COLORS.card,
 };
 

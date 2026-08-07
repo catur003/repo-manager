@@ -56,6 +56,40 @@ async function statLike(path) {
   };
 }
 
+/**
+ * BUGFIX (7 Agustus 2026): dulu mkdir() di bawah dipanggil dengan
+ * { intermediates: false } - cuma bikin SATU level folder. isomorphic-git
+ * butuh bikin path bersarang dalam (mis. .git/refs/remotes/origin/) dan
+ * ternyata TIDAK selalu memanggil mkdir untuk tiap level satu-satu
+ * sebelum writeFile (khususnya buat file ref hasil clone) - akibatnya
+ * folder induk gak kebentuk, lalu writeFile gagal ENOENT persis kayak di
+ * error log ("...refs/remotes/origin/master: open failed: ENOENT").
+ *
+ * mkdirRecursive() ini dipakai di DUA tempat: mkdir() publik (biar
+ * kompatibel kalau isomorphic-git memang manggilnya), DAN writeFile()
+ * (lapis pengaman kalau isomorphic-git skip mkdir). expo-file-system
+ * kadang lempar error palsu walau foldernya sukses dibuat (bug lama,
+ * https://github.com/expo/expo/issues/2050) - makanya dicek ulang lewat
+ * getInfoAsync sebelum dianggap gagal beneran.
+ */
+async function mkdirRecursive(uri) {
+  try {
+    await FileSystem.makeDirectoryAsync(uri, { intermediates: true });
+  } catch (e) {
+    const info = await FileSystem.getInfoAsync(uri).catch(() => null);
+    if (!info || !info.exists) throw e;
+    // foldernya sukses ada meski makeDirectoryAsync lempar error - abaikan.
+  }
+}
+
+async function ensureParentDir(path) {
+  const uri = toUri(path);
+  const lastSlash = uri.lastIndexOf('/');
+  const parent = uri.slice(0, lastSlash);
+  if (!parent || parent === REPOS_ROOT.replace(/\/+$/, '')) return;
+  await mkdirRecursive(parent);
+}
+
 export const fs = {
   promises: {
     async readFile(path, opts) {
@@ -76,6 +110,9 @@ export const fs = {
 
     async writeFile(path, data, opts) {
       const uri = toUri(path);
+      // Jaga-jaga: pastikan folder induk ada dulu sebelum nulis - lihat
+      // catatan BUGFIX di ensureParentDir/mkdirRecursive di atas.
+      await ensureParentDir(path);
       const isUtf8 = opts && opts.encoding === 'utf8';
       const content = isUtf8
         ? data
@@ -102,13 +139,10 @@ export const fs = {
     },
 
     async mkdir(path) {
-      try {
-        await FileSystem.makeDirectoryAsync(toUri(path), { intermediates: false });
-      } catch (e) {
-        // isomorphic-git kadang panggil mkdir untuk folder yang sudah ada -
-        // itu bukan error fatal, biarkan lanjut (mirip perilaku Node EEXIST).
-        if (!String(e?.message).includes('exists')) throw e;
-      }
+      // Sekarang rekursif (intermediates: true) - lihat catatan BUGFIX
+      // di mkdirRecursive() di atas. Dulu { intermediates: false } gagal
+      // diam-diam buat path bersarang seperti .git/refs/remotes/origin/.
+      await mkdirRecursive(toUri(path));
     },
 
     async rmdir(path) {

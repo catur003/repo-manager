@@ -23,6 +23,7 @@
 import git from 'isomorphic-git';
 import { fs, REPOS_ROOT } from './fsAdapter';
 import { getLocalAheadBehind } from './compareRepository';
+import { getStatusMatrixCached } from './statusCache';
 import { redactSecrets } from '../logging/logger';
 import { formatDateTime } from '../utils/format';
 
@@ -60,7 +61,7 @@ export async function getRepoStatusSummary(repo) {
     git.currentBranch({ fs, dir, fullname: false }).catch(() => null),
     git.listRemotes({ fs, dir }).catch(() => []),
     git.log({ fs, dir, depth: 1 }).catch(() => []),
-    git.statusMatrix({ fs, dir }).catch(() => []),
+    getStatusMatrixCached(dir).catch(() => []),
   ]);
 
   const branch = branchResult || repo.defaultBranch || '-';

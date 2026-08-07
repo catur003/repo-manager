@@ -12,6 +12,15 @@ import { useState } from 'react';
 import { appAlert } from '../components/AppModals';
 import { pushRepo, pullRepo, forcePushRepo, confirmStashSafe, discardAppliedStash } from '../git/syncRepo';
 
+/** Format daftar file berubah buat ditempel di pesan appAlert - dibatasi
+ * (diffCommitFiles udah nge-cap + hitung sisa), biar gak kepanjangan. */
+function formatChangedFiles(changedFiles) {
+  if (!changedFiles || !changedFiles.total) return '';
+  const list = changedFiles.files.join('\n');
+  const more = changedFiles.remaining > 0 ? `\n... dan ${changedFiles.remaining} file lainnya` : '';
+  return `\n\nFile berubah (${changedFiles.total}):\n${list}${more}`;
+}
+
 export function useSyncActions(repo, token, author, onOpenWorkingTree) {
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('Memproses...');
@@ -26,6 +35,13 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
       setBusy(false);
 
       if (res.error && !res.ok) {
+        if (res.blockedDirty) {
+          appAlert('Pull Ditunda', res.error, [
+            { text: 'Nanti saja', style: 'cancel' },
+            { text: 'Buka Working Tree', style: 'primary', onPress: () => onOpenWorkingTree?.(repo) },
+          ]);
+          return;
+        }
         appAlert('Pull Gagal', res.error);
         return;
       }
@@ -34,7 +50,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         appAlert(
           res.stashApplied ? 'Pull Berhasil' : 'Pull Berhasil, Tapi...',
           res.stashApplied
-            ? 'Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.'
+            ? `Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.${formatChangedFiles(res.changedFiles)}`
             : res.error,
           res.stashApplied
             ? [
@@ -64,7 +80,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         return;
       }
 
-      appAlert('Pull Berhasil', 'Perubahan terbaru dari GitHub sudah digabung.');
+      appAlert('Pull Berhasil', `Perubahan terbaru dari GitHub sudah digabung.${formatChangedFiles(res.changedFiles)}`);
       onDone?.();
     } catch (e) {
       setBusy(false);
@@ -85,7 +101,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         ]);
         return;
       }
-      appAlert('Push Berhasil', `Repository: ${repo.fullName}\nBranch: ${repo.defaultBranch}`);
+      appAlert('Push Berhasil', `Repository: ${repo.fullName}\nBranch: ${repo.defaultBranch}${formatChangedFiles(res.changedFiles)}`);
       onDone?.();
     } catch (e) {
       setBusy(false);

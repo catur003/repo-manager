@@ -86,10 +86,18 @@ export function SectionTitle({ children, style }) {
  * zenvps: icon (Feather, vector - bukan emoji) di lingkaran kiri + label,
  * satu baris per item.
  */
-export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default' }) {
+export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default', disabled = false }) {
   const Wrapper = onPress ? Pressable : View;
   return (
-    <Wrapper onPress={onPress} style={({ pressed }) => [pillStyles.row, tone === 'accent' && pillStyles.rowAccent, pressed && onPress ? { opacity: 0.7 } : null]}>
+    <Wrapper
+      onPress={disabled ? undefined : onPress}
+      style={({ pressed }) => [
+        pillStyles.row,
+        tone === 'accent' && pillStyles.rowAccent,
+        disabled && { opacity: 0.5 },
+        pressed && onPress && !disabled ? { opacity: 0.7 } : null,
+      ]}
+    >
       {icon ? (
         <View style={[pillStyles.iconWrap, tone === 'accent' && pillStyles.iconWrapAccent]}>
           <Feather name={icon} size={16} color={tone === 'accent' ? COLORS.onAccent : COLORS.accent} />

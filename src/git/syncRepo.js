@@ -27,6 +27,10 @@ import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
 import { updateRepoEvent } from './localRepos';
+import { getStatusMatrixCached, invalidateStatusCache } from './statusCache';
+import { getSetting } from './settingsStore';
+import { diffCommitFiles } from './diffTrees';
+import { formatDateTime } from '../utils/format';
 
 /**
  * BUGFIX (7 Agustus 2026, laporan Zen): dulu pakai getWorkingTreeStatus()
@@ -43,7 +47,7 @@ import { updateRepoEvent } from './localRepos';
  * gak dianggap alasan buat stash.
  */
 async function hasTrackedDirtyChanges(dir) {
-  const rows = await git.statusMatrix({ fs, dir });
+  const rows = await getStatusMatrixCached(dir);
   return rows.some(([, head, workdir, stage]) => {
     const isUntracked = head === 0 && stage === 0;
     if (isUntracked) return false;
@@ -56,6 +60,7 @@ async function hasTrackedDirtyChanges(dir) {
  * (non-fast-forward), balikin `{rejected: true}` supaya UI bisa nawarin
  * Pull dulu - persis BUGFIX yang dicatat di push.py CLI asli. */
 export async function pushRepo(dir, branch, token) {
+  const beforeOid = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${branch}` }).catch(() => null);
   try {
     const result = await git.push({
       fs,
@@ -74,7 +79,9 @@ export async function pushRepo(dir, branch, token) {
     }
     await logActivity(`Push berhasil (${branch})`);
     await updateRepoEvent(dir, 'lastPush');
-    return { rejected: false, ok: true };
+    const afterOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
+    const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);
+    return { rejected: false, ok: true, changedFiles };
   } catch (e) {
     const msg = String(e?.message || '').toLowerCase();
     if (msg.includes('reject') || msg.includes('fast-forward')) {
@@ -101,32 +108,52 @@ export async function forcePushRepo(dir, branch, token) {
 }
 
 /**
- * Pull - padanan pull(). Kalau working tree kotor: auto-stash dulu
- * (tracked files aja, sama kayak git asli tanpa -u), pull, terus 'apply'
- * stash-nya balik (BUKAN 'pop' - lihat catatan panjang di atas kenapa).
- * Stash TETAP DISIMPAN setelah apply - baru bener-bener kehapus kalau
- * user manggil confirmStashSafe() setelah ngecek hasilnya aman.
+ * Pull - padanan pull(). Kalau working tree kotor DAN auto-stash aktif
+ * (setting, default nyala - bisa dimatiin di Settings, permintaan Zen 7
+ * Agustus 2026): auto-stash dulu (tracked files aja, sama kayak git asli
+ * tanpa -u), pull, terus 'apply' stash-nya balik (BUKAN 'pop' - lihat
+ * catatan panjang di atas kenapa). Stash TETAP DISIMPAN setelah apply -
+ * baru bener-bener kehapus kalau user manggil confirmStashSafe() setelah
+ * ngecek hasilnya aman.
+ *
+ * Kalau auto-stash DIMATIKAN dan working tree kotor: pull ditolak duluan
+ * (blockedDirty), minta user commit dulu - lebih terbatas tapi paling
+ * transparan buat yang gak mau app "sok tau" ngutak-atik stash otomatis.
  *
  * SAFETY FIX (7 Agustus 2026, masukan Zen): message stash dikasih
  * timestamp unik + verifikasi lewat listStash() sebelum drop - BUKAN
- * asal drop refIdx:0. Ini penting bukan cuma buat rencana terminal masa
- * depan, tapi juga kasus sekarang: kalau user pull dua kali beruntun
- * tanpa konfirmasi yang pertama, refIdx bisa geser dan salah hapus stash
- * kalau gak diverifikasi dulu.
+ * asal drop refIdx:0.
+ *
+ * Balikin juga `changedFiles` (hasil diffCommitFiles antara HEAD sebelum
+ * & sesudah pull) buat ringkasan informatif di UI (permintaan Zen #5).
  */
 export async function pullRepo(dir, branch, token, author) {
   const wasDirty = await hasTrackedDirtyChanges(dir);
+  const autoStashEnabled = await getSetting('autoStash');
   const stashMessage = `auto-stash-before-pull:${Date.now()}`;
 
-  if (wasDirty) {
+  if (wasDirty && !autoStashEnabled) {
+    return {
+      ok: false,
+      blockedDirty: true,
+      error: 'Ada perubahan lokal belum di-commit dan auto-stash sedang dimatikan (Settings). Commit dulu perubahannya, atau nyalakan auto-stash lagi.',
+    };
+  }
+
+  const willStash = wasDirty && autoStashEnabled;
+
+  if (willStash) {
     try {
       await git.stash({ fs, dir, op: 'push', message: stashMessage });
+      invalidateStatusCache(dir);
       await logActivity('Auto-stash sebelum pull berhasil');
     } catch (e) {
       await logError('Gagal auto-stash sebelum pull', e?.message);
       throw new Error('Gagal menyimpan sementara perubahan lokal (stash). Pull dibatalkan, tidak ada yang berubah.');
     }
   }
+
+  const beforeOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
 
   try {
     await git.pull({
@@ -140,7 +167,7 @@ export async function pullRepo(dir, branch, token, author) {
     });
   } catch (e) {
     await logError('Pull gagal', e?.message);
-    if (wasDirty) {
+    if (willStash) {
       // Pull gagal SEBELUM sempat apply stash lagi - perubahan lokal
       // masih aman tersimpan utuh di stash, belum disentuh sama sekali.
       return { ok: false, stashKept: true, error: 'Pull gagal. Perubahan lokal kamu aman tersimpan di stash (belum diterapkan balik) - coba lagi nanti, atau buka daftar stash buat ambil manual.' };
@@ -152,17 +179,22 @@ export async function pullRepo(dir, branch, token, author) {
     throw new Error(toFriendlyMessage(e));
   }
 
+  invalidateStatusCache(dir);
   await logActivity(`Pull berhasil (${branch})`);
   await updateRepoEvent(dir, 'lastPull');
 
-  if (!wasDirty) {
-    return { ok: true, stashApplied: false };
+  const afterOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
+  const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);
+
+  if (!willStash) {
+    return { ok: true, stashApplied: false, changedFiles };
   }
 
   try {
     await git.stash({ fs, dir, op: 'apply' });
+    invalidateStatusCache(dir);
     await logActivity('Stash diterapkan balik setelah pull');
-    return { ok: true, stashApplied: true, stashKept: true, stashMessage };
+    return { ok: true, stashApplied: true, stashKept: true, stashMessage, changedFiles };
   } catch (e) {
     await logError('Gagal apply stash setelah pull', e?.message);
     return {
@@ -170,6 +202,7 @@ export async function pullRepo(dir, branch, token, author) {
       stashApplied: false,
       stashKept: true,
       stashMessage,
+      changedFiles,
       error: 'Pull berhasil, TAPI gagal menerapkan balik perubahan lokal dari stash. Perubahan kamu masih aman tersimpan di stash - buka daftar stash buat coba lagi manual.',
     };
   }
@@ -187,12 +220,7 @@ export async function pullRepo(dir, branch, token, author) {
  * dan diam-diam selalu gagal cocok, dicek dua-duanya.
  */
 function entryMatches(entry, stashMessage) {
-  if (typeof entry === 'string') return entry.includes(stashMessage);
-  if (entry && typeof entry === 'object') {
-    const text = entry.message || entry.msg || entry.subject || JSON.stringify(entry);
-    return String(text).includes(stashMessage);
-  }
-  return false;
+  return rawMessageOf(entry).includes(stashMessage);
 }
 
 export async function confirmStashSafe(dir, stashMessage) {
@@ -216,12 +244,50 @@ export async function confirmStashSafe(dir, stashMessage) {
  */
 export async function discardAppliedStash(dir) {
   await git.checkout({ fs, dir, force: true });
+  invalidateStatusCache(dir);
   await logActivity('Hasil stash apply dibuang (checkout force ke HEAD) - stash tetap disimpan');
 }
 
 export async function listStash(dir) {
   const result = await git.stash({ fs, dir, op: 'list' });
   return result || [];
+}
+
+function rawMessageOf(entry) {
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') return entry.message || entry.msg || entry.subject || JSON.stringify(entry);
+  return String(entry);
+}
+
+/**
+ * Daftar stash dengan label gampang dibaca - permintaan Zen ("stash
+ * bernama apa random bikin bingung"). Nama mentah dari auto-stash
+ * (`auto-stash-before-pull:<timestamp milidetik>`) diterjemahkan jadi
+ * "Auto-stash sebelum Pull - <tanggal jam>". Stash lain (manual, dari
+ * mana pun - termasuk terminal kalau nanti dibikin) ditampilkan apa
+ * adanya, gak dipaksa diterjemahkan.
+ */
+export async function getFormattedStashList(dir) {
+  const raw = await listStash(dir);
+  return raw.map((entry, index) => {
+    const message = rawMessageOf(entry);
+    const match = message.match(/^auto-stash-before-pull:(\d+)/);
+    const label = match ? `Auto-stash sebelum Pull - ${formatDateTime(new Date(Number(match[1])))}` : message || `Stash #${index}`;
+    return { index, label, rawMessage: message };
+  });
+}
+
+/** Terapkan satu stash spesifik (dari daftar manual, bukan alur auto-pull) - 'apply', stash TETAP ada setelahnya (sama alasan keamanan seperti di pullRepo). */
+export async function applyStashAt(dir, index) {
+  await git.stash({ fs, dir, op: 'apply', refIdx: index });
+  invalidateStatusCache(dir);
+  await logActivity(`Stash #${index} diterapkan (manual)`);
+}
+
+/** Hapus satu stash spesifik dari daftar manual. */
+export async function dropStashAt(dir, index) {
+  await git.stash({ fs, dir, op: 'drop', refIdx: index });
+  await logActivity(`Stash #${index} dihapus (manual)`);
 }
 
 /** Fetch - padanan fetch(). Cuma update info remote, gak gabung apa pun. */

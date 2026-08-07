@@ -16,17 +16,28 @@
  * Fase 8 dibangun, supaya gak ada 2 cara beda buat hal yang sama.
  */
 
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, StyleSheet, ScrollView, Switch } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Button, Card, SectionTitle, HeroCard, InfoBanner } from '../components/UI';
 import { appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { exportDebugBundle } from '../logging/logger';
+import { getSetting, setSetting } from '../git/settingsStore';
 
 export default function SettingsScreen({ profile, onLogout, onOpenStorageManager }) {
   const [log, setLog] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [autoStash, setAutoStash] = useState(true);
+
+  useEffect(() => {
+    getSetting('autoStash').then((v) => setAutoStash(v !== false));
+  }, []);
+
+  const handleToggleAutoStash = async (value) => {
+    setAutoStash(value);
+    await setSetting('autoStash', value);
+  };
 
   const handleShowLog = async () => {
     setLoading(true);
@@ -48,6 +59,21 @@ export default function SettingsScreen({ profile, onLogout, onOpenStorageManager
       </HeroCard>
 
       <Button title="Logout" onPress={onLogout} variant="secondary" />
+
+      <SectionTitle style={{ marginTop: SPACING.lg }}>Sinkronisasi</SectionTitle>
+      <Card>
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleLabel}>Auto-stash sebelum Pull</Text>
+            <Text style={styles.helperText}>
+              Kalau nyala: perubahan lokal yang belum di-commit otomatis disimpan sementara (stash) sebelum
+              Pull, lalu diterapkan balik setelahnya. Kalau dimatikan: Pull ditolak dulu kalau ada perubahan
+              belum di-commit, kamu diminta commit manual duluan.
+            </Text>
+          </View>
+          <Switch value={autoStash} onValueChange={handleToggleAutoStash} trackColor={{ true: COLORS.accent }} />
+        </View>
+      </Card>
 
       <SectionTitle style={{ marginTop: SPACING.lg }}>Penyimpanan</SectionTitle>
       <Card>
@@ -82,6 +108,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.lg },
   avatar: { width: 56, height: 56, borderRadius: 28, marginTop: SPACING.sm, borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
   helperText: { fontSize: 12, color: COLORS.inkMuted, marginBottom: SPACING.sm, lineHeight: 17 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  toggleLabel: { fontSize: 14, fontWeight: '700', color: COLORS.ink, marginBottom: 4 },
   logBox: { maxHeight: 260, backgroundColor: COLORS.bg, borderRadius: 10, padding: SPACING.sm, marginTop: SPACING.sm, marginBottom: SPACING.sm },
   logText: { fontSize: 11, color: COLORS.ink, fontFamily: 'monospace' },
 });

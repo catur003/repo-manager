@@ -11,6 +11,7 @@ import http from 'isomorphic-git/http/web';
 import { fs } from './fsAdapter';
 import { logError, logDebug } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
+import { getStatusMatrixCached } from './statusCache';
 
 class CompareError extends Error {}
 
@@ -120,7 +121,7 @@ export async function getLocalAheadBehind(dir, remoteBranch) {
 /** Working tree terpisah dari status commit di atas (poin 3.3.3 - wajib
  * dipertahankan supaya maknanya tidak tercampur). */
 export async function getWorkingTreeStatus(dir) {
-  const rows = await git.statusMatrix({ fs, dir });
+  const rows = await getStatusMatrixCached(dir);
   let modified = 0;
   for (const [, head, workdir, stage] of rows) {
     if (head !== workdir || workdir !== stage) modified += 1;

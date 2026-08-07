@@ -18,6 +18,7 @@ import * as FileSystem from 'expo-file-system';
 import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
+import { getStatusMatrixCached, invalidateStatusCache } from './statusCache';
 
 /** Klasifikasi 1 baris statusMatrix jadi kategori yang gampang dibaca +
  * dua flag (unstagedChange/stagedChange) buat nentuin file itu tampil di
@@ -37,7 +38,7 @@ function classifyRow([filepath, head, workdir, stage]) {
 
 /** Status detail working tree - padanan git_status_lengkap() + tampilkan_status(). */
 export async function getDetailedStatus(dir) {
-  const rows = await git.statusMatrix({ fs, dir });
+  const rows = await getStatusMatrixCached(dir);
   const entries = rows.map(classifyRow).filter(Boolean);
   const unstaged = entries.filter((e) => e.unstagedChange);
   const staged = entries.filter((e) => e.stagedChange);
@@ -63,6 +64,7 @@ export async function addAll(dir, unstagedEntries) {
   for (const entry of unstagedEntries) {
     await addOnePath(dir, entry);
   }
+  invalidateStatusCache(dir);
   await logActivity(`Git Add berhasil (semua file, ${unstagedEntries.length})`);
 }
 
@@ -71,6 +73,7 @@ export async function addSelected(dir, entries) {
   for (const entry of entries) {
     await addOnePath(dir, entry);
   }
+  invalidateStatusCache(dir);
   await logActivity(`Git Add berhasil (${entries.length} file)`);
 }
 
@@ -79,6 +82,7 @@ export async function unstagePaths(dir, filepaths) {
   for (const filepath of filepaths) {
     await git.resetIndex({ fs, dir, filepath });
   }
+  invalidateStatusCache(dir);
   await logActivity(`Unstage berhasil (${filepaths.length} file)`);
 }
 
@@ -99,6 +103,7 @@ export async function commitChanges(dir, message, author) {
   }
   try {
     const oid = await git.commit({ fs, dir, message: trimmed, author });
+    invalidateStatusCache(dir);
     await logActivity(`Commit berhasil (${oid.slice(0, 7)})`);
     return oid;
   } catch (e) {
@@ -139,6 +144,7 @@ export async function amendCommit(dir, newMessage, author) {
   const message = (newMessage || '').trim() || last.message;
   try {
     const oid = await git.commit({ fs, dir, message, author, amend: true });
+    invalidateStatusCache(dir);
     await logActivity(`Amend commit berhasil (${oid.slice(0, 7)})`);
     return oid;
   } catch (e) {

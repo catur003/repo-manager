@@ -48,6 +48,7 @@ import {
   refineDetectedPrefix,
 } from '../git/uploadRepo';
 import { detectZipRoot } from '../git/zipCore';
+import { invalidateStatusCache } from '../git/statusCache';
 import { logActivity, logError } from '../logging/logger';
 import { formatSize } from '../utils/format';
 
@@ -204,9 +205,14 @@ export default function UploadScreen({ repo, onBack }) {
     const refined = await refineDetectedPrefix(prefix, entryNames, destUri);
     setDetectedPrefixRaw(prefix);
     setRootPrefix(refined);
-    setAmbiguous(null);
     setBusy(false);
+    // BUGFIX (7 Agustus 2026): mode WAJIB diganti duluan sebelum ambiguous
+    // di-null-in - RN (arsitektur lama) gak selalu nge-batch setState
+    // setelah await, jadi kalau urutannya kebalik ada celah render
+    // ambiguous=null TAPI mode masih 'chooseRoot' -> crash
+    // "Cannot read property 'candidates' of null".
     setMode('zipStats');
+    setAmbiguous(null);
   };
 
   const toggleWrapperOverride = () => {
@@ -238,6 +244,7 @@ export default function UploadScreen({ repo, onBack }) {
     const filesBefore = await countFilesInDir(repoRealDir(repo));
     try {
       await copyFileToRepoFolder(sourceUri, destUri, sourceName);
+      invalidateStatusCache(repo.dir);
       const filesAfter = await countFilesInDir(repoRealDir(repo));
       setSummary({ added: filesAfter - filesBefore, modified: 0, filesBefore, filesAfter });
       await logActivity(`${flow === 'file' ? 'Upload File' : 'Upload ZIP (No Extract)'} berhasil ke ${repo.fullName}`);
@@ -258,6 +265,7 @@ export default function UploadScreen({ repo, onBack }) {
     const filesBefore = await countFilesInDir(repoRealDir(repo));
     try {
       await extractZip(zip, entryNames, destUri, rootPrefix, overwrite, (done, total) => setProgress({ done, total }));
+      invalidateStatusCache(repo.dir);
       const filesAfter = await countFilesInDir(repoRealDir(repo));
       setSummary({ added: diff.tambah, modified: diff.update, filesBefore, filesAfter });
       await logActivity(`Upload ZIP (Extract) berhasil ke ${repo.fullName}`);
@@ -277,9 +285,9 @@ export default function UploadScreen({ repo, onBack }) {
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         <SectionTitle>Upload - {repo.fullName}</SectionTitle>
         <InfoBanner>File belum otomatis ter-commit setelah upload. Pakai menu "Git Add & Commit" sesudahnya.</InfoBanner>
-        <PillRow icon="file" label="Upload File" sublabel="Salin satu file ke repository" onPress={handleUploadFile} />
-        <PillRow icon="upload" label="Upload ZIP (Extract)" sublabel="Ekstrak isi ZIP, deteksi folder wrapper, preview perubahan" onPress={handleUploadZipExtract} />
-        <PillRow icon="package" label="Upload ZIP (No Extract)" sublabel="Salin file ZIP apa adanya, tanpa dibongkar" onPress={handleUploadZipNoExtract} />
+        <PillRow icon="file" label="Upload File" sublabel="Salin satu file ke repository" onPress={handleUploadFile} disabled={busy} />
+        <PillRow icon="upload" label="Upload ZIP (Extract)" sublabel="Ekstrak isi ZIP, deteksi folder wrapper, preview perubahan" onPress={handleUploadZipExtract} disabled={busy} />
+        <PillRow icon="package" label="Upload ZIP (No Extract)" sublabel="Salin file ZIP apa adanya, tanpa dibongkar" onPress={handleUploadZipNoExtract} disabled={busy} />
         <Button title="Tutup" variant="secondary" onPress={onBack} />
       </ScrollView>
     );
@@ -289,9 +297,9 @@ export default function UploadScreen({ repo, onBack }) {
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         <SectionTitle>Pilih Folder Tujuan di Repository</SectionTitle>
         <InfoBanner>Dipilih duluan sebelum deteksi struktur ZIP, supaya deteksi bisa lebih akurat.</InfoBanner>
-        <PillRow icon="folder" label="/ (root repository)" onPress={() => confirmDestForZipExtract('')} />
+        <PillRow icon="folder" label="/ (root repository)" onPress={() => confirmDestForZipExtract('')} disabled={busy} />
         {destSubdirs.map((d) => (
-          <PillRow key={d} icon="folder" label={d} onPress={() => confirmDestForZipExtract(d)} />
+          <PillRow key={d} icon="folder" label={d} onPress={() => confirmDestForZipExtract(d)} disabled={busy} />
         ))}
         <SectionTitle style={{ marginTop: SPACING.md }}>Atau ketik sub-folder baru</SectionTitle>
         <TextInput
@@ -305,7 +313,7 @@ export default function UploadScreen({ repo, onBack }) {
         <Button title="Batal" variant="secondary" onPress={reset} />
       </ScrollView>
     );
-  } else if (mode === 'chooseRoot') {
+  } else if (mode === 'chooseRoot' && ambiguous) {
     content = (
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         <SectionTitle>Root Project Tidak Bisa Ditentukan Otomatis</SectionTitle>
@@ -314,7 +322,7 @@ export default function UploadScreen({ repo, onBack }) {
           yang jadi root project (isi ZIP yang sebenarnya).
         </InfoBanner>
         {ambiguous.candidates.map((c) => (
-          <PillRow key={c} icon="folder" label={c} onPress={() => chooseRootCandidate(c)} />
+          <PillRow key={c} icon="folder" label={c} onPress={() => chooseRootCandidate(c)} disabled={busy} />
         ))}
         <PillRow
           icon="folder-minus"
@@ -375,9 +383,9 @@ export default function UploadScreen({ repo, onBack }) {
     content = (
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         <SectionTitle>Pilih Folder Tujuan di Repository</SectionTitle>
-        <PillRow icon="folder" label="/ (root repository)" onPress={() => confirmDest('')} />
+        <PillRow icon="folder" label="/ (root repository)" onPress={() => confirmDest('')} disabled={busy} />
         {destSubdirs.map((d) => (
-          <PillRow key={d} icon="folder" label={d} onPress={() => confirmDest(d)} />
+          <PillRow key={d} icon="folder" label={d} onPress={() => confirmDest(d)} disabled={busy} />
         ))}
         <SectionTitle style={{ marginTop: SPACING.md }}>Atau ketik sub-folder baru</SectionTitle>
         <TextInput

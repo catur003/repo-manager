@@ -31,7 +31,7 @@ function soonAlert(fase, nama) {
   appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -103,6 +103,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
     { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },
     { icon: 'bar-chart-2', label: 'Storage Manager', onPress: onOpenStorageManager },
+    {
+      icon: 'inbox',
+      label: 'Stash',
+      onPress: () => (active ? onOpenStash(active) : appAlert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
     {
       icon: 'repeat',
       label: 'Compare Repo Aktif',

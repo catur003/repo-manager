@@ -16,6 +16,7 @@ import StorageManagerScreen from './src/screens/StorageManagerScreen';
 import UploadScreen from './src/screens/UploadScreen';
 import WorkingTreeScreen from './src/screens/WorkingTreeScreen';
 import SyncScreen from './src/screens/SyncScreen';
+import StashManagerScreen from './src/screens/StashManagerScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { AppAlertHost } from './src/components/AppModals';
@@ -47,6 +48,7 @@ function AppShell() {
   const [uploadRepo, setUploadRepo] = useState(null); // repo yang lagi dibuka buat Upload, null = tidak ada overlay
   const [workingTreeRepo, setWorkingTreeRepo] = useState(null); // repo yang lagi dibuka buat Working Tree/Commit
   const [syncScreen, setSyncScreen] = useState(null); // { repo, mode: 'push'|'pull' } | null
+  const [stashRepo, setStashRepo] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -77,6 +79,7 @@ function AppShell() {
     setUploadRepo(null);
     setWorkingTreeRepo(null);
     setSyncScreen(null);
+    setStashRepo(null);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
@@ -135,6 +138,8 @@ function AppShell() {
             author={{ name: profile.name, email: profile.email }}
             onBack={() => setSyncScreen(null)}
           />
+        ) : stashRepo ? (
+          <StashManagerScreen repo={stashRepo} onBack={() => setStashRepo(null)} />
         ) : tab === 'dashboard' ? (
           <DashboardScreen
             profile={profile}
@@ -145,6 +150,7 @@ function AppShell() {
             onOpenUpload={setUploadRepo}
             onOpenWorkingTree={setWorkingTreeRepo}
             onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
+            onOpenStash={setStashRepo}
           />
         ) : tab === 'github' ? (
           <RepoListScreen token={token} onCloned={bumpRefresh} />
@@ -157,7 +163,7 @@ function AppShell() {
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && !stashRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

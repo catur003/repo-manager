@@ -1,0 +1,185 @@
+/**
+ * StorageManagerScreen.js
+ * Implementasi keputusan 10.1 dokumen konsep (Bagian 10) yang sebelumnya
+ * belum dibangun sama sekali di Fase 1 - cuma ada peringatan pasif <500MB
+ * saat clone (di cloneRepo.js), belum ada layar manajemennya.
+ *
+ * Wajib ada di sini sesuai keputusan:
+ * - Total ruang terpakai semua repo lokal + sisa storage HP
+ * - Per-repo: ukuran di disk, kapan terakhir dibuka, status (ada
+ *   perubahan belum di-push atau tidak)
+ * - Sortir: Terbesar, Terlama Tidak Dibuka, Ada Perubahan Belum Push
+ * - Tombol hapus per-repo langsung dari sini (dengan peringatan kalau ada
+ *   commit belum di-push)
+ *
+ * "Ada perubahan belum di-push" dicek OFFLINE (getLocalAheadBehind, tanpa
+ * fetch) - lihat catatan di compareRepository.js kenapa: mahal & rawan
+ * rate-limit kalau tiap repo di-fetch cuma buat isi list ini.
+ */
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import { Button, Card, StatusBadge, SectionTitle } from '../components/UI';
+import { COLORS, SPACING, RADIUS } from '../theme';
+import { listLocalRepos, removeLocalRepo } from '../git/localRepos';
+import { getDirSizeBytes, getDeviceStorageInfo } from '../git/diskUsage';
+import { getLocalAheadBehind } from '../git/compareRepository';
+import { REPOS_ROOT } from '../git/fsAdapter';
+import { logActivity, logError } from '../logging/logger';
+import { formatSize, timeAgo } from '../utils/format';
+
+const SORTS = [
+  { key: 'largest', label: 'Terbesar' },
+  { key: 'stale', label: 'Terlama Tidak Dibuka' },
+  { key: 'unpushed', label: 'Ada Perubahan Belum Push' },
+];
+
+export default function StorageManagerScreen({ onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState([]); // repo + sizeBytes + unpushed
+  const [device, setDevice] = useState({ freeBytes: null, totalBytes: null });
+  const [sort, setSort] = useState('largest');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [repos, deviceInfo] = await Promise.all([listLocalRepos(), getDeviceStorageInfo()]);
+    setDevice(deviceInfo);
+
+    // Dijalankan berurutan (bukan Promise.all) sengaja - getDirSizeBytes
+    // itu berat (baca seluruh isi .git/objects), jalanin paralel buat
+    // banyak repo sekaligus bisa bikin UI thread ngos-ngosan di HP kelas
+    // bawah. Lebih lambat tapi lebih aman.
+    const result = [];
+    for (const r of repos) {
+      const sizeBytes = await getDirSizeBytes(`${REPOS_ROOT}${String(r.dir).replace(/^\/+/, '')}`);
+      const { status } = await getLocalAheadBehind(r.dir, r.defaultBranch).catch(() => ({ status: 'unknown' }));
+      result.push({ ...r, sizeBytes, unpushed: status === 'ahead' || status === 'diverged' });
+    }
+    setRows(result);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    if (sort === 'largest') copy.sort((a, b) => b.sizeBytes - a.sizeBytes);
+    else if (sort === 'stale') copy.sort((a, b) => (a.lastOpenedAt || 0) - (b.lastOpenedAt || 0));
+    else if (sort === 'unpushed') copy.sort((a, b) => Number(b.unpushed) - Number(a.unpushed));
+    return copy;
+  }, [rows, sort]);
+
+  const totalBytes = useMemo(() => rows.reduce((sum, r) => sum + (r.sizeBytes || 0), 0), [rows]);
+
+  const handleDelete = (repo) => {
+    const warning = repo.unpushed
+      ? 'Repo ini masih punya commit yang BELUM di-push ke GitHub. Menghapus data lokal akan menghilangkan perubahan itu secara permanen.'
+      : 'Data repo ini akan dihapus dari penyimpanan HP.';
+    Alert.alert(`Hapus ${repo.fullName}?`, warning, [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Hapus data',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await FileSystem.deleteAsync(`${FileSystem.documentDirectory}repos/${repo.id}`, { idempotent: true });
+            await removeLocalRepo(repo.id);
+            await logActivity(`${repo.fullName} dihapus dari Storage Manager (data + daftar)`);
+          } catch (e) {
+            await logError(`Gagal hapus data ${repo.fullName} dari Storage Manager`, e?.message);
+            Alert.alert('Gagal menghapus', 'Data repo gagal dihapus dari penyimpanan. Coba lagi.');
+          }
+          load();
+        },
+      },
+    ]);
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Storage Manager</Text>
+        <Pressable onPress={onBack} hitSlop={8}>
+          <Text style={styles.backText}>Tutup</Text>
+        </Pressable>
+      </View>
+
+      <Card>
+        {loading ? (
+          <ActivityIndicator color={COLORS.accent} />
+        ) : (
+          <>
+            <Text style={styles.summaryText}>{formatSize(totalBytes / 1024)} dipakai oleh {rows.length} repo lokal</Text>
+            {device.freeBytes != null ? (
+              <Text style={styles.summarySub}>
+                Sisa storage HP: {formatSize(device.freeBytes / 1024)}
+                {device.totalBytes != null ? ` dari ${formatSize(device.totalBytes / 1024)}` : ''}
+              </Text>
+            ) : null}
+          </>
+        )}
+      </Card>
+
+      <SectionTitle>Urutkan</SectionTitle>
+      <View style={styles.sortRow}>
+        {SORTS.map((s) => (
+          <Pressable key={s.key} onPress={() => setSort(s.key)} style={[styles.sortChip, sort === s.key && styles.sortChipActive]}>
+            <Text style={[styles.sortChipText, sort === s.key && styles.sortChipTextActive]}>{s.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {loading ? (
+        <ActivityIndicator color={COLORS.accent} style={{ marginTop: SPACING.xl }} />
+      ) : (
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: SPACING.xl }}
+          ListEmptyComponent={<Text style={styles.emptyText}>Belum ada repo lokal.</Text>}
+          renderItem={({ item }) => (
+            <Card>
+              <Text style={styles.repoName}>{item.fullName}</Text>
+              <Text style={styles.repoMeta}>
+                {formatSize(item.sizeBytes / 1024)} · dibuka {timeAgo(item.lastOpenedAt)}
+              </Text>
+              {item.unpushed ? (
+                <View style={{ marginTop: SPACING.sm }}>
+                  <StatusBadge status="ahead" label="Ada perubahan belum di-push" />
+                </View>
+              ) : null}
+              <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={{ marginTop: SPACING.sm }} />
+            </Card>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: SPACING.lg },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  title: { fontSize: 17, fontWeight: '800', color: COLORS.ink },
+  backText: { fontSize: 14, fontWeight: '700', color: COLORS.accent },
+  summaryText: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
+  summarySub: { fontSize: 12, color: COLORS.inkMuted, marginTop: 4 },
+  sortRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACING.md },
+  sortChip: {
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  sortChipActive: { backgroundColor: COLORS.accentSoft, borderColor: COLORS.accent },
+  sortChipText: { fontSize: 12, fontWeight: '600', color: COLORS.inkMuted },
+  sortChipTextActive: { color: COLORS.accent },
+  emptyText: { color: COLORS.inkMuted, textAlign: 'center', marginTop: SPACING.xl },
+  repoName: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
+  repoMeta: { fontSize: 12, color: COLORS.inkMuted, marginTop: 4 },
+});

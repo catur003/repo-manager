@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, TextInput, Linking } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { Button, Card, StatusBadge } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
@@ -13,23 +13,14 @@ import {
 } from '../git/localRepos';
 import { getWorkingTreeStatus } from '../git/compareRepository';
 import { logActivity, logError } from '../logging/logger';
-
-function timeAgo(ts) {
-  if (!ts) return '-';
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'baru saja';
-  if (mins < 60) return `${mins} menit lalu`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} jam lalu`;
-  return `${Math.floor(hrs / 24)} hari lalu`;
-}
+import { timeAgo } from '../utils/format';
 
 export default function LocalReposScreen({ token, onOpenCompare }) {
   const [repos, setRepos] = useState([]);
   const [statuses, setStatuses] = useState({}); // id -> 'clean' | 'modified'
   const [activeId, setActiveId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +94,21 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
     );
   };
 
+  // Search (tabel 4.1 dokumen konsep: search_repository harusnya ada di
+  // GitHub Repos DAN Local Repos - sebelumnya cuma ada di GitHub Repos).
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return repos;
+    return repos.filter((r) => r.fullName.toLowerCase().includes(q));
+  }, [repos, query]);
+
+  const handleOpenGithub = (repo) => {
+    // Pengganti open_location() CLI asli (yang buka file manager ke path
+    // lokal) - di app sandbox mobile gak relevan, diganti buka halaman
+    // repo di GitHub lewat browser (tabel 4.1).
+    if (repo.htmlUrl) Linking.openURL(repo.htmlUrl).catch(() => {});
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -113,12 +119,21 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
 
   return (
     <View style={styles.container}>
+      <TextInput
+        style={styles.search}
+        placeholder="Cari repo lokal..."
+        placeholderTextColor={COLORS.inkFaint}
+        value={query}
+        onChangeText={setQuery}
+      />
       <FlatList
-        data={repos}
+        data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: SPACING.lg, paddingBottom: SPACING.xl }}
+        contentContainerStyle={{ paddingBottom: SPACING.xl }}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>Belum ada repo lokal. Clone repo pertamamu dari tab GitHub Repos.</Text>
+          <Text style={styles.emptyText}>
+            {repos.length ? 'Tidak ada repo yang cocok dengan pencarian.' : 'Belum ada repo lokal. Clone repo pertamamu dari tab GitHub Repos.'}
+          </Text>
         }
         renderItem={({ item }) => (
           <Card>
@@ -146,6 +161,7 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
               <Button title="Compare" variant="secondary" onPress={() => onOpenCompare(item)} style={styles.actionBtn} />
               <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={styles.actionBtn} />
             </View>
+            <Button title="Lihat di GitHub" variant="secondary" onPress={() => handleOpenGithub(item)} />
           </Card>
         )}
       />
@@ -154,7 +170,17 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, paddingTop: SPACING.lg, paddingHorizontal: SPACING.lg },
+  search: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    color: COLORS.ink,
+    marginBottom: SPACING.md,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: COLORS.inkMuted, textAlign: 'center', marginTop: SPACING.xl },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start' },

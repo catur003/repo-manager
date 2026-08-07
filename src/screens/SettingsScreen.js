@@ -23,7 +23,7 @@ import { Button, Card, SectionTitle } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { exportDebugBundle } from '../logging/logger';
 
-export default function SettingsScreen({ profile, onLogout }) {
+export default function SettingsScreen({ profile, onLogout, onOpenStorageManager }) {
   const [log, setLog] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +50,15 @@ export default function SettingsScreen({ profile, onLogout }) {
       </Card>
 
       <Button title="Logout" onPress={onLogout} variant="secondary" />
+
+      <SectionTitle style={{ marginTop: SPACING.lg }}>Penyimpanan</SectionTitle>
+      <Card>
+        <Text style={styles.helperText}>
+          Lihat total ruang yang dipakai repo lokal, urutkan berdasarkan ukuran/terakhir dibuka/ada perubahan
+          belum di-push, dan hapus repo langsung dari sana (keputusan 10.1).
+        </Text>
+        <Button title="Buka Storage Manager" onPress={onOpenStorageManager} variant="secondary" />
+      </Card>
 
       <SectionTitle style={{ marginTop: SPACING.lg }}>Log Error (Sementara)</SectionTitle>
       <Card>

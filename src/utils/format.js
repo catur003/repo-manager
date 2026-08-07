@@ -17,3 +17,17 @@ export function formatSize(kb) {
   if (n < 1024) return `${Math.round(n)} KB`;
   return `${(n / 1024).toFixed(1)} MB`;
 }
+
+/** Format "X menit/jam/hari lalu" dari timestamp ms. Dipindah kesini dari
+ * LocalReposScreen.js supaya StorageManagerScreen bisa pakai juga tanpa
+ * duplikasi (Fitur Storage Manager, keputusan 10.1). */
+export function timeAgo(ts) {
+  if (!ts) return '-';
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'baru saja';
+  if (mins < 60) return `${mins} menit lalu`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} jam lalu`;
+  return `${Math.floor(hrs / 24)} hari lalu`;
+}

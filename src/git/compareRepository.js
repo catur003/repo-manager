@@ -66,16 +66,23 @@ export async function compareRepository({ dir, token, remoteBranch }) {
     throw new CompareError(toFriendlyMessage(e));
   }
 
+  const result = await diffAheadBehind(dir, remoteBranch);
+  if (!result) {
+    throw new CompareError('Tidak dapat membaca riwayat commit repo ini.');
+  }
+  return result;
+}
+
+/** Logic inti hitung ahead/behind dari ref lokal - dipakai bersama oleh
+ * compareRepository() (setelah fetch) dan getLocalAheadBehind() (tanpa
+ * fetch, lihat di bawah). Return null kalau ref lokal/remote gak kebaca
+ * (caller yang tentukan itu error fatal atau cuma "belum diketahui"). */
+async function diffAheadBehind(dir, remoteBranch) {
   const localOid = await git.resolveRef({ fs, dir, ref: remoteBranch }).catch(() => null);
   const remoteOid = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${remoteBranch}` }).catch(() => null);
 
-  if (!localOid || !remoteOid) {
-    throw new CompareError('Tidak dapat membaca riwayat commit repo ini.');
-  }
-
-  if (localOid === remoteOid) {
-    return { status: 'synced', ahead: 0, behind: 0 };
-  }
+  if (!localOid || !remoteOid) return null;
+  if (localOid === remoteOid) return { status: 'synced', ahead: 0, behind: 0 };
 
   const remoteAncestors = await collectOids(dir, remoteOid);
   const localAncestors = await collectOids(dir, localOid);
@@ -90,6 +97,24 @@ export async function compareRepository({ dir, token, remoteBranch }) {
   else status = 'synced';
 
   return { status, ahead, behind };
+}
+
+/**
+ * Versi OFFLINE dari perbandingan ahead/behind - TIDAK melakukan fetch,
+ * cuma baca ref lokal yang sudah ada (hasil fetch/clone terakhir). Dipakai
+ * Storage Manager (keputusan 10.1) supaya bisa nunjukin badge "ada
+ * perubahan belum di-push" buat SEMUA repo lokal tanpa nembak GitHub API
+ * satu-satu (mahal & bisa kena rate limit kalau repo-nya banyak).
+ *
+ * Beda dari compareRepository(): kalau ref gak kebaca, balikin status
+ * 'unknown' (bukan throw) - karena di Storage Manager ini cuma salah satu
+ * dari banyak badge di list, bukan hasil utama satu layar seperti di
+ * CompareScreen. Konsekuensi lain: datanya bisa basi kalau remote sudah
+ * berubah sejak fetch/clone terakhir - trade-off yang disengaja.
+ */
+export async function getLocalAheadBehind(dir, remoteBranch) {
+  const result = await diffAheadBehind(dir, remoteBranch);
+  return result || { status: 'unknown', ahead: 0, behind: 0 };
 }
 
 /** Working tree terpisah dari status commit di atas (poin 3.3.3 - wajib

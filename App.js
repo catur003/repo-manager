@@ -12,6 +12,7 @@ import RepoListScreen from './src/screens/RepoListScreen';
 import LocalReposScreen from './src/screens/LocalReposScreen';
 import CompareScreen from './src/screens/CompareScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import StorageManagerScreen from './src/screens/StorageManagerScreen';
 import { AuroraBackground } from './src/components/AuroraBackground';
 import { TabBar } from './src/components/TabBar';
 import { COLORS } from './src/theme';
@@ -38,6 +39,7 @@ function AppShell() {
 
   const [tab, setTab] = useState('dashboard');
   const [compareRepo, setCompareRepo] = useState(null); // repo yang lagi di-compare, null = tidak ada overlay
+  const [storageManagerOpen, setStorageManagerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ function AppShell() {
     setToken(null);
     setTab('dashboard');
     setCompareRepo(null);
+    setStorageManagerOpen(false);
   };
 
   // Dipanggil setelah clone sukses, supaya tab Local Repos & Dashboard
@@ -98,6 +101,8 @@ function AppShell() {
       <View style={styles.content}>
         {compareRepo ? (
           <CompareScreen repo={compareRepo} token={token} onBack={() => setCompareRepo(null)} />
+        ) : storageManagerOpen ? (
+          <StorageManagerScreen onBack={() => setStorageManagerOpen(false)} />
         ) : tab === 'dashboard' ? (
           <DashboardScreen profile={profile} refreshKey={refreshKey} />
         ) : tab === 'github' ? (
@@ -105,13 +110,13 @@ function AppShell() {
         ) : tab === 'local' ? (
           <LocalReposScreen token={token} onOpenCompare={setCompareRepo} />
         ) : (
-          <SettingsScreen profile={profile} onLogout={handleLogout} />
+          <SettingsScreen profile={profile} onLogout={handleLogout} onOpenStorageManager={() => setStorageManagerOpen(true)} />
         )}
       </View>
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

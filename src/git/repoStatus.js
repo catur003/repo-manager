@@ -49,18 +49,39 @@ export async function getRepoStatusSummary(repo) {
   const dir = repo.dir;
   const location = `${REPOS_ROOT}${String(dir).replace(/^\/+/, '')}`;
 
-  const branch = (await git.currentBranch({ fs, dir, fullname: false }).catch(() => null)) || repo.defaultBranch || '-';
+  // PERFORMA (7 Agustus 2026, pertanyaan Zen soal loading lebih lambat
+  // dari CLI): branch/remote/commit-terakhir/statusMatrix gak saling
+  // butuh satu sama lain - dulu 4 request ini ditembak SATU-SATU pakai
+  // await berurutan. Sekarang jalan bareng lewat Promise.all. Gak
+  // ngilangin overhead dasar isomorphic-git+expo-file-system (itu
+  // batasan arsitektur, lihat penjelasan ke Zen), tapi ngurangin waktu
+  // TUNGGU totalnya cukup berasa buat operasi yang sifatnya nunggu I/O.
+  const [branchResult, remoteResult, logResult, statusResult] = await Promise.all([
+    git.currentBranch({ fs, dir, fullname: false }).catch(() => null),
+    git.listRemotes({ fs, dir }).catch(() => []),
+    git.log({ fs, dir, depth: 1 }).catch(() => []),
+    git.statusMatrix({ fs, dir }).catch(() => []),
+  ]);
+
+  const branch = branchResult || repo.defaultBranch || '-';
 
   let remote = '-';
-  try {
-    const remotes = await git.listRemotes({ fs, dir });
-    const origin = remotes.find((r) => r.remote === 'origin') || remotes[0];
-    if (origin) remote = redactSecrets(origin.url);
-  } catch {
-    /* belum ada remote terdaftar - biarkan '-' */
-  }
+  const origin = remoteResult.find((r) => r.remote === 'origin') || remoteResult[0];
+  if (origin) remote = redactSecrets(origin.url);
   const connected = remote !== '-' ? 'Ya' : 'Tidak (belum ada remote)';
 
+  let lastCommit = '-';
+  if (logResult.length) {
+    const c = logResult[0];
+    const firstLine = c.commit.message.split('\n')[0];
+    lastCommit = `${c.oid.slice(0, 7)} ${firstLine}`;
+  }
+
+  const changedFiles = statusResult.filter(([, head, workdir, stage]) => head !== workdir || workdir !== stage).length;
+  const statusLabel = changedFiles === 0 ? 'Bersih (tidak ada perubahan)' : `${changedFiles} file berubah`;
+
+  // Ini butuh `branch` dulu, jadi tetap nunggu hasil di atas - gak bisa
+  // ikut diparalelkan.
   let upstream = '-';
   let ahead = '-';
   let behind = '-';
@@ -72,28 +93,6 @@ export async function getRepoStatusSummary(repo) {
       ahead = result.ahead;
       behind = result.behind;
     }
-  }
-
-  let lastCommit = '-';
-  try {
-    const log = await git.log({ fs, dir, depth: 1 });
-    if (log.length) {
-      const c = log[0];
-      const firstLine = c.commit.message.split('\n')[0];
-      lastCommit = `${c.oid.slice(0, 7)} ${firstLine}`;
-    }
-  } catch {
-    /* repo belum ada commit sama sekali - biarkan '-' */
-  }
-
-  let changedFiles = 0;
-  let statusLabel = 'Tidak diketahui';
-  try {
-    const rows = await git.statusMatrix({ fs, dir });
-    changedFiles = rows.filter(([, head, workdir, stage]) => head !== workdir || workdir !== stage).length;
-    statusLabel = changedFiles === 0 ? 'Bersih (tidak ada perubahan)' : `${changedFiles} file berubah`;
-  } catch {
-    /* gagal baca status - biarkan default "Tidak diketahui" */
   }
 
   return {

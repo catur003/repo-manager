@@ -19,7 +19,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator } from 'react-native';
-import { Button, Card, SectionTitle, InfoBanner, PillRow, StatusTable, ErrorBanner } from '../components/UI';
+import { Button, Card, SectionTitle, InfoBanner, PillRow, StatusTable, ErrorBanner, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { REPOS_ROOT } from '../git/fsAdapter';
@@ -195,8 +195,9 @@ export default function WorkingTreeScreen({ repo, author, onBack }) {
 
   if (mode === 'history') {
     content = (
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
-        <SectionTitle>Riwayat Commit</SectionTitle>
+      <View style={{ flex: 1 }}>
+        <TopBar title="Riwayat Commit" onBack={() => setMode('status')} />
+        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         {history.length === 0 ? (
           <Text style={styles.emptyText}>Belum ada commit di repository ini.</Text>
         ) : (
@@ -212,8 +213,8 @@ export default function WorkingTreeScreen({ repo, author, onBack }) {
             </Card>
           ))
         )}
-        <Button title="Kembali" variant="secondary" onPress={() => setMode('status')} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   } else if (mode === 'amend') {
     content = (

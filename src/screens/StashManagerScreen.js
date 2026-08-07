@@ -9,7 +9,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { Button, SectionTitle, InfoBanner, PillRow, ErrorBanner } from '../components/UI';
+import { Button, InfoBanner, PillRow, ErrorBanner, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getFormattedStashList, applyStashAt, dropStashAt } from '../git/syncRepo';
@@ -84,30 +84,30 @@ export default function StashManagerScreen({ repo, onBack }) {
   };
 
   return (
-    <View style={styles.container}>
-      <SectionTitle>Stash - {repo.fullName}</SectionTitle>
-      <InfoBanner>
-        Stash tersimpan di dalam repo ini sendiri (bukan di Backup terpisah), cuma lokal di HP ini - gak ikut
-        Push/Pull ke GitHub.
-      </InfoBanner>
+    <View style={{ flex: 1 }}>
+      <TopBar title={`Stash - ${repo.fullName}`} onBack={onBack} backLabel="Tutup" />
+      <View style={styles.container}>
+        <InfoBanner>
+          Stash tersimpan di dalam repo ini sendiri (bukan di Backup terpisah), cuma lokal di HP ini - gak
+          ikut Push/Pull ke GitHub.
+        </InfoBanner>
 
-      {loading ? null : (
-        <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xl }}>
-          <ErrorBanner message={error} />
-          {stashes.length === 0 ? <Text style={styles.emptyText}>Belum ada stash tersimpan.</Text> : null}
-          {stashes.map((item) => (
-            <View key={item.index} style={styles.stashCard}>
-              <PillRow icon="archive" label={item.label} sublabel={`stash@{${item.index}}`} disabled={busy} />
-              <View style={styles.actionsRow}>
-                <Button title="Terapkan" variant="secondary" onPress={() => handleApply(item)} disabled={busy} style={styles.actionBtn} />
-                <Button title="Hapus" variant="danger" onPress={() => handleDrop(item)} disabled={busy} style={styles.actionBtn} />
+        {loading ? null : (
+          <ScrollView contentContainerStyle={{ paddingBottom: SPACING.xl }}>
+            <ErrorBanner message={error} />
+            {stashes.length === 0 ? <Text style={styles.emptyText}>Belum ada stash tersimpan.</Text> : null}
+            {stashes.map((item) => (
+              <View key={item.index} style={styles.stashCard}>
+                <PillRow icon="archive" label={item.label} sublabel={`stash@{${item.index}}`} disabled={busy} />
+                <View style={styles.actionsRow}>
+                  <Button title="Terapkan" variant="secondary" onPress={() => handleApply(item)} disabled={busy} style={styles.actionBtn} />
+                  <Button title="Hapus" variant="danger" onPress={() => handleDrop(item)} disabled={busy} style={styles.actionBtn} />
+                </View>
               </View>
-            </View>
-          ))}
-        </ScrollView>
-      )}
-
-      <Button title="Tutup" variant="secondary" onPress={onBack} />
+            ))}
+          </ScrollView>
+        )}
+      </View>
       <LoadingModal visible={busy} label="Memproses..." icon="archive" />
     </View>
   );

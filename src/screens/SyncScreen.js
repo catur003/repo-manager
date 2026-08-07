@@ -17,6 +17,7 @@ import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { fetchRepo } from '../git/syncRepo';
 import { getLocalAheadBehind } from '../git/compareRepository';
+import { getCurrentBranch } from '../git/branchOps';
 import { useSyncActions } from '../hooks/useSyncActions';
 
 export default function SyncScreen({ repo, token, author, mode, onBack }) {
@@ -36,9 +37,11 @@ export default function SyncScreen({ repo, token, author, mode, onBack }) {
     }
   }
 
+  // BUGFIX (7 Agustus 2026): resolve branch AKTIF, bukan repo.defaultBranch statis.
   const doFetch = async () => {
     try {
-      await withBusy('Fetch...', () => fetchRepo(repo.dir, repo.defaultBranch, token));
+      const branch = (await getCurrentBranch(repo.dir)) || repo.defaultBranch;
+      await withBusy('Fetch...', () => fetchRepo(repo.dir, branch, token));
       appAlert('Fetch Berhasil', 'Info remote sudah diperbarui.');
     } catch (e) {
       appAlert('Fetch Gagal', e.message);
@@ -46,7 +49,8 @@ export default function SyncScreen({ repo, token, author, mode, onBack }) {
   };
 
   const doRefresh = async () => {
-    const result = await getLocalAheadBehind(repo.dir, repo.defaultBranch).catch(() => null);
+    const branch = (await getCurrentBranch(repo.dir)) || repo.defaultBranch;
+    const result = await getLocalAheadBehind(repo.dir, branch).catch(() => null);
     if (!result) {
       appAlert('Refresh', 'Belum ada info remote-tracking - coba Fetch dulu.');
       return;

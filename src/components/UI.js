@@ -206,6 +206,26 @@ export function SuccessBanner({ children }) {
   );
 }
 
+/**
+ * TopBar - baris atas FIXED (di luar ScrollView) berisi tombol
+ * kembali/tutup + judul. Permintaan Zen: layar dengan list panjang
+ * (Riwayat Commit, daftar Stash, daftar Branch) dulu cuma punya tombol
+ * balik di PALING BAWAH scroll - kalau isinya banyak, harus scroll
+ * jauh dulu buat balik. Sekarang ada juga di atas, selalu kelihatan
+ * tanpa perlu scroll sama sekali.
+ */
+export function TopBar({ title, onBack, backLabel = 'Kembali' }) {
+  return (
+    <View style={topBarStyles.row}>
+      <Pressable onPress={onBack} hitSlop={8}>
+        <Text style={topBarStyles.backText}>{'< '}{backLabel}</Text>
+      </Pressable>
+      {title ? <Text style={topBarStyles.title} numberOfLines={1}>{title}</Text> : null}
+      <View style={{ width: 60 }} />
+    </View>
+  );
+}
+
 // Badge status repo (dipakai Local Repos: Clean/Modified, dan Compare:
 // Sinkron/Lokal Lebih Baru/GitHub Lebih Baru/Diverged). Warna & label
 // per-kunci, pola sama dengan StatusPill.tsx milik zenvps.
@@ -399,6 +419,21 @@ const successStyles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   text: { fontSize: 13, color: COLORS.ink, lineHeight: 19 },
+});
+
+const topBarStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm + 2,
+    backgroundColor: COLORS.card,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+  },
+  backText: { fontSize: 14, fontWeight: '700', color: COLORS.accent, width: 90 },
+  title: { flex: 1, fontSize: 14, fontWeight: '700', color: COLORS.ink, textAlign: 'center' },
 });
 
 // Re-export supaya kode lama yang masih `import { COLORS } from './UI'`

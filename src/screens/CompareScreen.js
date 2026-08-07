@@ -13,6 +13,7 @@ import { Button, HeroCard, Card, StatusBadge, ErrorBanner, InfoBanner } from '..
 import { LoadingModal } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
+import { getCurrentBranch } from '../git/branchOps';
 import { useSyncActions } from '../hooks/useSyncActions';
 
 const RECOMMENDATION = {
@@ -26,13 +27,20 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [branch, setBranch] = useState(repo.defaultBranch);
   const sync = useSyncActions(repo, token, author, onOpenWorkingTree);
 
+  // BUGFIX (7 Agustus 2026): dulu selalu pakai repo.defaultBranch (nilai
+  // statis dari clone) - sekarang resolve branch AKTIF SAAT INI dulu,
+  // biar Compare gak nampilin/ngebandingin branch yang salah kalau user
+  // udah checkout ke branch lain.
   const run = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const r = await compareRepository({ dir: repo.dir, token, remoteBranch: repo.defaultBranch });
+      const currentBranch = (await getCurrentBranch(repo.dir)) || repo.defaultBranch;
+      setBranch(currentBranch);
+      const r = await compareRepository({ dir: repo.dir, token, remoteBranch: currentBranch });
       setResult(r);
     } catch (e) {
       setError(e.message);
@@ -47,7 +55,7 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
 
   return (
     <View style={styles.container}>
-      <HeroCard eyebrow="Compare Repository" title={repo.fullName} subtitle={`Branch ${repo.defaultBranch}`} />
+      <HeroCard eyebrow="Compare Repository" title={repo.fullName} subtitle={`Branch ${branch}`} />
 
       <Card>
         <ErrorBanner message={error} />

@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, TextInput } from 'react-native';
-import { Button, Card, SectionTitle, InfoBanner, PillRow, ErrorBanner } from '../components/UI';
+import { Button, Card, SectionTitle, InfoBanner, PillRow, ErrorBanner, TopBar } from '../components/UI';
 import { LoadingModal, appAlert } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import {
@@ -239,8 +239,9 @@ export default function BranchScreen({ repo, token, onBack }) {
     );
   } else if (mode === 'sync') {
     content = (
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
-        <SectionTitle>Sync Branch - {repo.fullName}</SectionTitle>
+      <View style={{ flex: 1 }}>
+        <TopBar title="Sync Branch" onBack={() => setMode('list')} />
+        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         {syncData?.both.map((b) => (
           <PillRow
             key={b.name}
@@ -260,13 +261,14 @@ export default function BranchScreen({ repo, token, onBack }) {
           </View>
         ))}
         <Button title="Fetch Ulang" variant="secondary" onPress={openSync} />
-        <Button title="Kembali ke Daftar Branch" variant="secondary" onPress={() => setMode('list')} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   } else {
     content = (
-      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
-        <SectionTitle>Branch - {repo.fullName}</SectionTitle>
+      <View style={{ flex: 1 }}>
+        <TopBar title="Branch" onBack={onBack} backLabel="Tutup" />
+        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }}>
         <ErrorBanner message={error} />
         {branches.map((name) => (
           <PillRow
@@ -279,8 +281,8 @@ export default function BranchScreen({ repo, token, onBack }) {
         ))}
         <Button title="Buat Branch Baru" onPress={() => setMode('create')} />
         <Button title="Sync Branch" variant="secondary" onPress={openSync} />
-        <Button title="Tutup" variant="secondary" onPress={onBack} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 

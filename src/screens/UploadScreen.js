@@ -443,8 +443,8 @@ export default function UploadScreen({ repo, onBack }) {
         ) : null}
         <PillRow
           icon={overwrite ? 'toggle-right' : 'toggle-left'}
-          tone={overwrite ? 'danger' : 'success'}
-          label={overwrite ? 'Timpa file yang bentrok: Ya' : 'Timpa file yang bentrok: Tidak'}
+          tone={overwrite ? 'success' : 'warning'}
+          label={overwrite ? 'Timpa file lama: Ya' : 'Timpa file lama: Tidak'}
           sublabel="Tap untuk ganti"
           onPress={() => setOverwrite((v) => !v)}
         />

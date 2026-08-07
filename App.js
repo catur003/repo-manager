@@ -121,49 +121,63 @@ function AppShell() {
             repo={compareRepo}
             token={token}
             author={{ name: profile.name, email: profile.email }}
-            onBack={() => setCompareRepo(null)}
+            onBack={() => { setCompareRepo(null); bumpRefresh(); }}
             onOpenWorkingTree={(r) => {
               setCompareRepo(null);
               setWorkingTreeRepo(r);
             }}
           />
         ) : storageManagerOpen ? (
-          <StorageManagerScreen onBack={() => setStorageManagerOpen(false)} />
+          <StorageManagerScreen onBack={() => { setStorageManagerOpen(false); bumpRefresh(); }} />
         ) : uploadRepo ? (
-          <UploadScreen repo={uploadRepo} onBack={() => setUploadRepo(null)} />
+          <UploadScreen repo={uploadRepo} onBack={() => { setUploadRepo(null); bumpRefresh(); }} />
         ) : workingTreeRepo ? (
-          <WorkingTreeScreen repo={workingTreeRepo} author={{ name: profile.name, email: profile.email }} onBack={() => setWorkingTreeRepo(null)} />
+          <WorkingTreeScreen repo={workingTreeRepo} author={{ name: profile.name, email: profile.email }} onBack={() => { setWorkingTreeRepo(null); bumpRefresh(); }} />
         ) : syncScreen ? (
           <SyncScreen
             repo={syncScreen.repo}
             mode={syncScreen.mode}
             token={token}
             author={{ name: profile.name, email: profile.email }}
-            onBack={() => setSyncScreen(null)}
+            onBack={() => { setSyncScreen(null); bumpRefresh(); }}
           />
         ) : stashRepo ? (
-          <StashManagerScreen repo={stashRepo} onBack={() => setStashRepo(null)} />
+          <StashManagerScreen repo={stashRepo} onBack={() => { setStashRepo(null); bumpRefresh(); }} />
         ) : branchRepo ? (
-          <BranchScreen repo={branchRepo} token={token} onBack={() => setBranchRepo(null)} />
-        ) : tab === 'dashboard' ? (
-          <DashboardScreen
-            profile={profile}
-            refreshKey={refreshKey}
-            onNavigateTab={setTab}
-            onOpenCompare={setCompareRepo}
-            onOpenStorageManager={() => setStorageManagerOpen(true)}
-            onOpenUpload={setUploadRepo}
-            onOpenWorkingTree={setWorkingTreeRepo}
-            onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
-            onOpenStash={setStashRepo}
-            onOpenBranch={setBranchRepo}
-          />
-        ) : tab === 'github' ? (
-          <RepoListScreen token={token} onCloned={bumpRefresh} />
-        ) : tab === 'local' ? (
-          <LocalReposScreen token={token} onOpenCompare={setCompareRepo} onOpenUpload={setUploadRepo} onOpenWorkingTree={setWorkingTreeRepo} />
+          <BranchScreen repo={branchRepo} token={token} onBack={() => { setBranchRepo(null); bumpRefresh(); }} />
         ) : (
-          <SettingsScreen profile={profile} onLogout={handleLogout} onOpenStorageManager={() => setStorageManagerOpen(true)} />
+          // BUGFIX (7 Agustus 2026, laporan Zen): dulu 4 layar tab ini
+          // di-render kondisional (ternary) - tiap balik dari layar lain
+          // (Branch/Upload/dst) ke tab manapun, komponennya KE-UNMOUNT
+          // TOTAL terus di-mount ULANG dari nol, state balik kosong,
+          // loading nge-blank lagi ("kehentak"). Sekarang ke-4 nya SELALU
+          // ke-mount bareng, disembunyiin lewat display:none pas gak
+          // aktif - state-nya awet, gak reload ulang tiap gonta-ganti.
+          <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, display: tab === 'dashboard' ? 'flex' : 'none' }}>
+              <DashboardScreen
+                profile={profile}
+                refreshKey={refreshKey}
+                onNavigateTab={setTab}
+                onOpenCompare={setCompareRepo}
+                onOpenStorageManager={() => setStorageManagerOpen(true)}
+                onOpenUpload={setUploadRepo}
+                onOpenWorkingTree={setWorkingTreeRepo}
+                onOpenSync={(repo, mode) => setSyncScreen({ repo, mode })}
+                onOpenStash={setStashRepo}
+                onOpenBranch={setBranchRepo}
+              />
+            </View>
+            <View style={{ flex: 1, display: tab === 'github' ? 'flex' : 'none' }}>
+              <RepoListScreen token={token} onCloned={bumpRefresh} />
+            </View>
+            <View style={{ flex: 1, display: tab === 'local' ? 'flex' : 'none' }}>
+              <LocalReposScreen token={token} onOpenCompare={setCompareRepo} onOpenUpload={setUploadRepo} onOpenWorkingTree={setWorkingTreeRepo} />
+            </View>
+            <View style={{ flex: 1, display: tab === 'settings' ? 'flex' : 'none' }}>
+              <SettingsScreen profile={profile} onLogout={handleLogout} onOpenStorageManager={() => setStorageManagerOpen(true)} />
+            </View>
+          </View>
         )}
       </View>
 

@@ -11,6 +11,20 @@
 import { useState } from 'react';
 import { appAlert } from '../components/AppModals';
 import { pushRepo, pullRepo, forcePushRepo, confirmStashSafe, discardAppliedStash } from '../git/syncRepo';
+import { getCurrentBranch } from '../git/branchOps';
+
+/** BUGFIX (7 Agustus 2026, laporan Zen): dulu semua aksi sync di sini
+ * pakai `repo.defaultBranch` (nilai statis dari clone dulu) - begitu
+ * fitur Branch ada (checkout/buat branch baru), ini salah: kalau user
+ * checkout ke branch lain, Push/Pull/Force Push tetap nyasar ke branch
+ * default yang gak disentuh, branch baru gak pernah beneran ke-push.
+ * Sekarang selalu resolve branch AKTIF SAAT INI dulu sebelum aksi apa
+ * pun - fallback ke repo.defaultBranch cuma kalau gagal deteksi (HEAD
+ * detached, kasus langka). */
+async function resolveActiveBranch(repo) {
+  const current = await getCurrentBranch(repo.dir);
+  return current || repo.defaultBranch;
+}
 
 /** Format daftar file berubah buat ditempel di pesan appAlert - dibatasi
  * (diffCommitFiles udah nge-cap + hitung sisa), biar gak kepanjangan. */
@@ -31,7 +45,8 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
     setBusy(true);
     setBusyLabel('Mengambil (pull)...');
     try {
-      const res = await pullRepo(repo.dir, repo.defaultBranch, token, author);
+      const branch = await resolveActiveBranch(repo);
+      const res = await pullRepo(repo.dir, branch, token, author);
       setBusy(false);
 
       if (res.error && !res.ok) {
@@ -92,7 +107,8 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
     setBusy(true);
     setBusyLabel('Mengirim (push)...');
     try {
-      const res = await pushRepo(repo.dir, repo.defaultBranch, token);
+      const branch = await resolveActiveBranch(repo);
+      const res = await pushRepo(repo.dir, branch, token);
       setBusy(false);
       if (res.rejected) {
         appAlert('Push ditolak', 'Ada perubahan baru di GitHub. Pull dulu, baru coba Push lagi?', [
@@ -101,7 +117,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         ]);
         return;
       }
-      appAlert('Push Berhasil', `Repository: ${repo.fullName}\nBranch: ${repo.defaultBranch}${formatChangedFiles(res.changedFiles)}`);
+      appAlert('Push Berhasil', `Repository: ${repo.fullName}\nBranch: ${branch}${formatChangedFiles(res.changedFiles)}`);
       onDone?.();
     } catch (e) {
       setBusy(false);
@@ -121,7 +137,8 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
     setBusy(true);
     setBusyLabel('Force Push...');
     try {
-      await forcePushRepo(repo.dir, repo.defaultBranch, token);
+      const branch = await resolveActiveBranch(repo);
+      await forcePushRepo(repo.dir, branch, token);
       setBusy(false);
       appAlert('Force Push Berhasil', 'Riwayat commit di GitHub sudah ditimpa dengan riwayat lokal.');
       onDone?.();

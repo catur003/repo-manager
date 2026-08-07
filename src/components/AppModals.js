@@ -21,6 +21,7 @@ import { Feather } from '@expo/vector-icons';
 import { COLORS, SPACING, RADIUS } from '../theme';
 
 let _showAlert = null;
+let _pendingRequest = null;
 
 /**
  * appAlert(title, message, buttons?)
@@ -33,12 +34,35 @@ export function appAlert(title, message, buttons = [{ text: 'OK', style: 'primar
 
 export function AppAlertHost() {
   const [state, setState] = useState(null);
-  _showAlert = setState;
-  const close = () => setState(null);
+  const [visible, setVisible] = useState(false);
+
+  // BUGFIX (7 Agustus 2026, laporan Zen): dulu alert baru langsung
+  // ditampilkan di tick yang sama pas alert lama ditutup (mis. rename
+  // Push Berhasil -> Pull ditawarin, atau delete confirm -> hasil
+  // sukses) - Modal-nya kelihatan "ganti paksa"/nabrak, bukan transisi
+  // mulus, karena animasi keluar Modal lama belum sempat selesai.
+  // Sekarang: kalau ada alert lagi tampil, tutup dulu (biarin animasi
+  // keluar jalan), baru buka yang baru abis jeda kecil.
+  _showAlert = (next) => {
+    if (visible) {
+      _pendingRequest = next;
+      setVisible(false);
+      setTimeout(() => {
+        setState(_pendingRequest);
+        setVisible(true);
+        _pendingRequest = null;
+      }, 220);
+      return;
+    }
+    setState(next);
+    setVisible(true);
+  };
+
+  const close = () => setVisible(false);
 
   if (!state) return null;
   return (
-    <Modal transparent animationType="fade" visible onRequestClose={close}>
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={close}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Text style={styles.title}>{state.title}</Text>

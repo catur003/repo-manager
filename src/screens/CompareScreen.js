@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { Button, Card, StatusBadge, ErrorBanner } from '../components/UI';
+import { Button, HeroCard, Card, StatusBadge, ErrorBanner } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
 
@@ -40,7 +40,7 @@ export default function CompareScreen({ repo, token, onBack }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{repo.fullName}</Text>
+      <HeroCard eyebrow="Compare Repository" title={repo.fullName} subtitle={`Branch ${repo.defaultBranch}`} />
 
       <Card>
         <ErrorBanner message={error} />
@@ -76,7 +76,6 @@ export default function CompareScreen({ repo, token, onBack }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.lg },
-  title: { fontSize: 17, fontWeight: '800', color: COLORS.ink, marginBottom: SPACING.md },
   countText: { fontSize: 13, color: COLORS.inkMuted, marginTop: SPACING.sm },
   recText: { fontSize: 13, color: COLORS.ink, marginTop: 6, fontWeight: '600' },
   actions: { marginTop: SPACING.md, gap: 4 },

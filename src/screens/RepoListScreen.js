@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, Alert, Pressable } from 'react-native';
-import { Button, Card, ErrorBanner } from '../components/UI';
+import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { Button, HeroCard, PillRow, ErrorBanner } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { listUserRepos } from '../git/reposApi';
 import { preflightClone, doClone } from '../git/cloneRepo';
@@ -87,27 +87,25 @@ export default function RepoListScreen({ token, onCloned }) {
   if (selected) {
     return (
       <View style={styles.container}>
-        <Card>
-          <Text style={styles.detailTitle}>{selected.fullName}</Text>
+        <HeroCard
+          eyebrow={selected.private ? 'Private repo' : 'Public repo'}
+          title={selected.fullName}
+          subtitle={`Branch ${selected.defaultBranch} · ${formatSize(selected.sizeKb)}`}
+        >
           {selected.description ? <Text style={styles.detailDesc}>{selected.description}</Text> : null}
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>Branch: {selected.defaultBranch}</Text>
-            <Text style={styles.metaText}>{selected.private ? 'Private' : 'Public'}</Text>
-            <Text style={styles.metaText}>{formatSize(selected.sizeKb)}</Text>
-          </View>
+        </HeroCard>
 
-          {progress ? (
-            <View style={{ marginTop: SPACING.md }}>
-              <Text style={styles.progressText}>{progress.phase}{progress.pct ? ` — ${progress.pct}%` : ''}</Text>
-              <ActivityIndicator color={COLORS.accent} style={{ marginTop: 8 }} />
-            </View>
-          ) : (
-            <View style={{ marginTop: SPACING.md }}>
-              <Button title="Clone" onPress={() => handleClone(selected)} />
-              <Button title="Batal" variant="secondary" onPress={closeDetail} />
-            </View>
-          )}
-        </Card>
+        {progress ? (
+          <View style={{ marginTop: SPACING.md }}>
+            <Text style={styles.progressText}>{progress.phase}{progress.pct ? ` — ${progress.pct}%` : ''}</Text>
+            <ActivityIndicator color={COLORS.accent} style={{ marginTop: 8 }} />
+          </View>
+        ) : (
+          <View style={{ marginTop: SPACING.md }}>
+            <Button title="Clone" onPress={() => handleClone(selected)} />
+            <Button title="Batal" variant="secondary" onPress={closeDetail} />
+          </View>
+        )}
       </View>
     );
   }
@@ -132,15 +130,12 @@ export default function RepoListScreen({ token, onCloned }) {
           contentContainerStyle={{ paddingBottom: SPACING.xl }}
           ListEmptyComponent={<Text style={styles.emptyText}>Belum ada repo, atau tidak cocok dengan pencarian.</Text>}
           renderItem={({ item }) => (
-            // BUGFIX: onPress dulu nempel di <Text> doang, jadi area yang
-            // bisa di-tap cuma teks nama repo - bukan seluruh baris/card.
-            // Sekarang Pressable membungkus seluruh Card.
-            <Pressable onPress={() => openDetail(item)}>
-              <Card style={{ marginBottom: SPACING.sm }}>
-                <Text style={styles.repoName}>{item.fullName}</Text>
-                <Text style={styles.repoMeta}>{item.private ? 'Private' : 'Public'} · {item.defaultBranch}</Text>
-              </Card>
-            </Pressable>
+            <PillRow
+              icon={item.private ? '🔒' : '📦'}
+              label={item.fullName}
+              sublabel={`${item.private ? 'Private' : 'Public'} · ${item.defaultBranch}`}
+              onPress={() => openDetail(item)}
+            />
           )}
         />
       )}
@@ -163,9 +158,6 @@ const styles = StyleSheet.create({
   repoName: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
   repoMeta: { fontSize: 12, color: COLORS.inkMuted, marginTop: 4 },
   emptyText: { color: COLORS.inkMuted, textAlign: 'center', marginTop: SPACING.xl },
-  detailTitle: { fontSize: 17, fontWeight: '800', color: COLORS.ink },
-  detailDesc: { fontSize: 13, color: COLORS.inkMuted, marginTop: 6 },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: SPACING.md },
-  metaText: { fontSize: 12, color: COLORS.inkMuted },
+  detailDesc: { fontSize: 13, color: 'rgba(255,255,255,0.9)', marginTop: SPACING.sm },
   progressText: { fontSize: 13, color: COLORS.ink, textAlign: 'center' },
 });

@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable, Alert, TextInput, Linking } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import { Button, Card, StatusBadge } from '../components/UI';
-import { COLORS, SPACING } from '../theme';
+import { Button, StatusBadge, PillRow } from '../components/UI';
+import { COLORS, SPACING, RADIUS } from '../theme';
 import {
   listLocalRepos,
   toggleFavorite,
@@ -136,19 +136,18 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
           </Text>
         }
         renderItem={({ item }) => (
-          <Card>
-            <View style={styles.headerRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.repoName}>{item.fullName}</Text>
-                <Text style={styles.repoMeta}>
-                  {item.defaultBranch} · dibuka {timeAgo(item.lastOpenedAt)}
-                  {item.id === activeId ? ' · Aktif' : ''}
-                </Text>
-              </View>
-              <Pressable onPress={() => handleFavorite(item)} hitSlop={8}>
-                <Text style={styles.star}>{item.favorite ? '★' : '☆'}</Text>
-              </Pressable>
-            </View>
+          <View style={styles.pillCard}>
+            <PillRow
+              icon="📦"
+              tone={item.id === activeId ? 'accent' : 'default'}
+              label={item.fullName}
+              sublabel={`${item.defaultBranch} · dibuka ${timeAgo(item.lastOpenedAt)}${item.id === activeId ? ' · Aktif' : ''}`}
+              right={
+                <Pressable onPress={() => handleFavorite(item)} hitSlop={8}>
+                  <Text style={styles.star}>{item.favorite ? '★' : '☆'}</Text>
+                </Pressable>
+              }
+            />
 
             <View style={styles.badgeRow}>
               <StatusBadge status={statuses[item.id] || 'unknown'} />
@@ -162,7 +161,7 @@ export default function LocalReposScreen({ token, onOpenCompare }) {
               <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={styles.actionBtn} />
             </View>
             <Button title="Lihat di GitHub" variant="secondary" onPress={() => handleOpenGithub(item)} />
-          </Card>
+          </View>
         )}
       />
     </View>
@@ -183,11 +182,16 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: COLORS.inkMuted, textAlign: 'center', marginTop: SPACING.xl },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  repoName: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
-  repoMeta: { fontSize: 12, color: COLORS.inkMuted, marginTop: 4 },
-  star: { fontSize: 20, color: COLORS.amber, marginLeft: 8 },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.sm },
-  actionsRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.md },
+  pillCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm + 2,
+  },
+  star: { fontSize: 20, color: COLORS.amber },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.xs, marginHorizontal: SPACING.sm },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: SPACING.sm, marginHorizontal: SPACING.sm },
   actionBtn: { flex: 1, paddingHorizontal: 8 },
 });

@@ -19,7 +19,7 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, Alert } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { Button, Card, SectionTitle } from '../components/UI';
+import { Button, Card, SectionTitle, HeroCard, InfoBanner } from '../components/UI';
 import { COLORS, SPACING } from '../theme';
 import { exportDebugBundle } from '../logging/logger';
 
@@ -41,13 +41,10 @@ export default function SettingsScreen({ profile, onLogout, onOpenStorageManager
   };
 
   return (
-    <View style={styles.container}>
-      <SectionTitle>Akun</SectionTitle>
-      <Card style={{ alignItems: 'center' }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }} showsVerticalScrollIndicator={false}>
+      <HeroCard eyebrow="Akun" title={profile?.name || profile?.login} subtitle={`@${profile?.login}`}>
         {profile?.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} /> : null}
-        <Text style={styles.name}>{profile?.name}</Text>
-        <Text style={styles.login}>@{profile?.login}</Text>
-      </Card>
+      </HeroCard>
 
       <Button title="Logout" onPress={onLogout} variant="secondary" />
 
@@ -61,11 +58,11 @@ export default function SettingsScreen({ profile, onLogout, onOpenStorageManager
       </Card>
 
       <SectionTitle style={{ marginTop: SPACING.lg }}>Log Error (Sementara)</SectionTitle>
+      <InfoBanner>
+        Tombol debug sementara - buat lihat pesan error asli (mis. saat clone gagal), sebelum layar "Log
+        Aktivitas" versi lengkap dibangun di Fase 8. Token/kredensial sudah disamarkan otomatis.
+      </InfoBanner>
       <Card>
-        <Text style={styles.helperText}>
-          Tombol debug sementara - buat lihat pesan error asli (mis. saat clone gagal), sebelum layar
-          "Log Aktivitas" versi lengkap dibangun di Fase 8. Token/kredensial sudah disamarkan otomatis.
-        </Text>
         <Button title={loading ? 'Memuat...' : 'Tampilkan Log Error'} onPress={handleShowLog} variant="secondary" disabled={loading} />
         {log ? (
           <>
@@ -76,15 +73,13 @@ export default function SettingsScreen({ profile, onLogout, onOpenStorageManager
           </>
         ) : null}
       </Card>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.lg },
-  avatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 10 },
-  name: { fontSize: 17, fontWeight: '700', color: COLORS.ink },
-  login: { fontSize: 13, color: COLORS.inkMuted, marginTop: 2 },
+  avatar: { width: 56, height: 56, borderRadius: 28, marginTop: SPACING.sm, borderWidth: 2, borderColor: 'rgba(255,255,255,0.6)' },
   helperText: { fontSize: 12, color: COLORS.inkMuted, marginBottom: SPACING.sm, lineHeight: 17 },
   logBox: { maxHeight: 260, backgroundColor: COLORS.bg, borderRadius: 10, padding: SPACING.sm, marginTop: SPACING.sm, marginBottom: SPACING.sm },
   logText: { fontSize: 11, color: COLORS.ink, fontFamily: 'monospace' },

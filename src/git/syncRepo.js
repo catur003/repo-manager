@@ -291,9 +291,15 @@ export async function dropStashAt(dir, index) {
 }
 
 /** Fetch - padanan fetch(). Cuma update info remote, gak gabung apa pun. */
+/** Fetch - padanan fetch(). Cuma update info remote, gak gabung apa pun.
+ * BUGFIX (7 Agustus 2026, laporan Zen): dulu `singleBranch: true` (cuma
+ * update 1 branch) + gak ada `prune` sama sekali - jadi Sync Branch gak
+ * pernah nangkep branch yang udah dihapus di GitHub (ref remote-tracking
+ * lokalnya nyangkut terus). CLI asli pakai `git fetch --prune origin`
+ * (semua branch + buang yang udah gak ada di remote) - sekarang disamain. */
 export async function fetchRepo(dir, branch, token) {
   try {
-    await git.fetch({ fs, http, dir, ref: branch, singleBranch: true, tags: false, onAuth: () => ({ username: token }) });
+    await git.fetch({ fs, http, dir, tags: false, prune: true, onAuth: () => ({ username: token }) });
     await logActivity(`Fetch berhasil (${branch})`);
   } catch (e) {
     await logError('Fetch gagal', e?.message);

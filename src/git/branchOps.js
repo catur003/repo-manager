@@ -23,6 +23,8 @@ import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
 import { collectOids } from './compareRepository';
 import { invalidateStatusCache } from './statusCache';
+import { githubFetch } from './reposApi';
+import { GITHUB_API_BASE } from '../config';
 
 export async function getCurrentBranch(dir) {
   return (await git.currentBranch({ fs, dir, fullname: false }).catch(() => null)) || null;
@@ -165,14 +167,22 @@ export async function deleteBranchLocal(dir, branchName, force = false) {
 
 /** Hapus branch remote - padanan bagian "Hapus Branch Remote" di
  * sync_branch() CLI (git push origin --delete <branch>). */
-export async function deleteBranchRemote(dir, branchName, token, remote = 'origin') {
-  try {
-    await git.push({ fs, http, dir, remote, ref: branchName, delete: true, onAuth: () => ({ username: token }) });
-    await logActivity(`Branch remote ${branchName} dihapus`);
-  } catch (e) {
-    await logError('Gagal menghapus branch remote', e?.message);
-    throw new Error(toFriendlyMessage(e));
-  }
+/**
+ * Hapus branch remote - BUGFIX (7 Agustus 2026, laporan Zen): dulu pakai
+ * `git.push({ref, delete:true})` isomorphic-git, yang TERNYATA butuh
+ * resolve branch itu dari LOKAL dulu buat tau jenis ref-nya (docs errors
+ * isomorphic-git ada kode khusus "Could not expand reference") - jadi
+ * kalau branch lokalnya udah kehapus duluan (skenario Zen: hapus lokal
+ * -> baru mau hapus remote), gagal diam-diam tanpa hasil jelas.
+ *
+ * Sekarang DELETE langsung ke GitHub REST API - gak peduli status lokal
+ * sama sekali, murni operasi di sisi GitHub, sama pola dengan hapus
+ * branch setelah merge PR yang udah jalan duluan di pullRequestApi.js.
+ */
+export async function deleteBranchRemote(token, owner, name, branchName) {
+  const url = `${GITHUB_API_BASE}/repos/${owner}/${name}/git/refs/heads/${encodeURIComponent(branchName)}`;
+  await githubFetch(url, token, { method: 'DELETE' });
+  await logActivity(`Branch remote ${branchName} dihapus`);
 }
 
 async function countAheadBehind(dir, fromOid, otherAncestors, limit = 100) {

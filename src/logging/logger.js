@@ -13,6 +13,7 @@
  */
 
 import * as FileSystem from 'expo-file-system';
+import { formatDateTime } from '../utils/format';
 
 const LOG_DIR = `${FileSystem.documentDirectory}logs/`;
 const ACTIVITY_LOG = `${LOG_DIR}activity.log`;
@@ -66,8 +67,12 @@ function timestamp() {
   return new Date().toTimeString().slice(0, 5); // HH:MM
 }
 
+// BUGFIX (7 Agustus 2026, laporan Zen): dulu pakai toISOString() (UTC,
+// ada "Z" di akhir) - jam-nya beda dari jam HP kalau HP-nya gak di UTC+0
+// (mis. WIB = UTC+7, beda 7 jam). Sekarang pakai jam LOKAL device,
+// format sama kayak yang dipakai Dashboard (formatDateTime).
 function fullTimestamp() {
-  return new Date().toISOString();
+  return formatDateTime();
 }
 
 /** Log yang terlihat user di layar "Log Aktivitas". */

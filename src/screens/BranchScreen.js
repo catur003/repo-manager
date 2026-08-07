@@ -205,7 +205,7 @@ export default function BranchScreen({ repo, token, onBack }) {
           setBusy(true);
           setBusyLabel('Menghapus branch remote...');
           try {
-            await deleteBranchRemote(repo.dir, name, token);
+            await deleteBranchRemote(token, repo.owner, repo.name, name);
             appAlert('Terhapus', `Branch remote "${name}" sudah dihapus.`);
             await refreshSync();
           } catch (e) {

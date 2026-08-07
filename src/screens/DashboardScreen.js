@@ -30,7 +30,7 @@ function soonAlert(fase, nama) {
   Alert.alert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -81,7 +81,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       label: 'Upload',
       onPress: () => (active ? onOpenUpload(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
     },
-    { icon: 'edit-3', label: 'Git Add & Commit', soon: 3, onPress: () => soonAlert(3, 'Git Add & Commit') },
+    {
+      icon: 'edit-3',
+      label: 'Git Add & Commit',
+      onPress: () => (active ? onOpenWorkingTree(active) : Alert.alert('Belum ada repo aktif', 'Pilih repo aktif dulu di tab Local Repos.')),
+    },
     { icon: 'refresh-cw', label: 'Push & Pull', soon: 4, onPress: () => soonAlert(4, 'Push & Pull') },
     { icon: 'git-merge', label: 'Merge & PR', soon: 5, onPress: () => soonAlert(5, 'Merge & Pull Request') },
     { icon: 'archive', label: 'Backup', soon: 7, onPress: () => soonAlert(7, 'Backup') },

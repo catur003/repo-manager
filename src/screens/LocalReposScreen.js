@@ -16,7 +16,7 @@ import { getWorkingTreeStatus } from '../git/compareRepository';
 import { logActivity, logError } from '../logging/logger';
 import { timeAgo } from '../utils/format';
 
-export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload }) {
+export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, onOpenWorkingTree }) {
   const [repos, setRepos] = useState([]);
   const [statuses, setStatuses] = useState({}); // id -> 'clean' | 'modified'
   const [activeId, setActiveId] = useState(null);
@@ -158,6 +158,7 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload })
 
             <View style={styles.actionsRow}>
               <Button title="Gunakan" onPress={() => handleUse(item)} variant={item.id === activeId ? 'secondary' : 'primary'} style={styles.actionBtn} />
+              <Button title="Commit" variant="secondary" onPress={() => onOpenWorkingTree(item)} style={styles.actionBtn} />
               <Button title="Compare" variant="secondary" onPress={() => onOpenCompare(item)} style={styles.actionBtn} />
               <Button title="Upload" variant="secondary" onPress={() => onOpenUpload(item)} style={styles.actionBtn} />
               <Button title="Hapus" variant="danger" onPress={() => handleDelete(item)} style={styles.actionBtn} />

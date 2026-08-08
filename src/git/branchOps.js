@@ -21,7 +21,7 @@ import http from 'isomorphic-git/http/web';
 import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
-import { collectOids } from './compareRepository';
+import { collectOids, countCommitsNotIn } from './compareRepository';
 import { invalidateStatusCache } from './statusCache';
 import { githubFetch } from './reposApi';
 import { GITHUB_API_BASE } from '../config';
@@ -202,20 +202,13 @@ export async function deleteBranchRemote(token, owner, name, branchName) {
   await logActivity(`Branch remote ${branchName} dihapus`);
 }
 
-async function countAheadBehind(dir, fromOid, otherAncestors, limit = 100) {
-  let count = 0;
-  const seen = new Set();
-  const queue = [fromOid];
-  while (queue.length && count < limit) {
-    const cur = queue.shift();
-    if (!cur || seen.has(cur) || otherAncestors.has(cur)) continue;
-    seen.add(cur);
-    count += 1;
-    const commit = await git.readCommit({ fs, dir, oid: cur }).catch(() => null);
-    if (commit) queue.push(...commit.commit.parent);
-  }
-  return count;
-}
+// PERF (8 Agustus 2026): dulu ada reimplementasi lokal `countAheadBehind`
+// di sini, isinya sama persis dengan `countCommitsNotIn` di
+// compareRepository.js (cuma limit default beda, 100 vs 250) - dua
+// tempat kode yang gampang out-of-sync. Sekarang pakai yang dari
+// compareRepository.js langsung (diimpor bareng `collectOids`), limit
+// 100 tetap dipertahankan persis di titik pemanggilannya di bawah biar
+// perilaku Branch screen gak berubah.
 
 /**
  * Sync Branch data - padanan sync_branch() (tanpa fetch di sini, biar
@@ -244,10 +237,16 @@ export async function getBranchSyncData(dir) {
     let ahead = 0;
     let behind = 0;
     if (localOid && remoteOid && localOid !== remoteOid) {
-      const remoteAncestors = await collectOids(dir, remoteOid);
-      const localAncestors = await collectOids(dir, localOid);
-      ahead = await countAheadBehind(dir, localOid, remoteAncestors);
-      behind = await countAheadBehind(dir, remoteOid, localAncestors);
+      // PERF: cache per-branch (bukan lintas branch, oid beda-beda tiap
+      // branch jadi gak banyak gunanya di-share antar iterasi loop) -
+      // tapi TETAP motong duplikasi baca commit yang sama antara
+      // collectOids(localOid) dan countCommitsNotIn(localOid, ...) di
+      // bawah, persis pola yang sama kayak diffAheadBehind().
+      const cache = new Map();
+      const remoteAncestors = await collectOids(dir, remoteOid, 250, cache);
+      const localAncestors = await collectOids(dir, localOid, 250, cache);
+      ahead = await countCommitsNotIn(dir, localOid, remoteAncestors, 100, cache);
+      behind = await countCommitsNotIn(dir, remoteOid, localAncestors, 100, cache);
     }
     bothWithCounts.push({ name: b, ahead, behind, isCurrent: b === current });
   }

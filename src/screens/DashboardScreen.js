@@ -48,11 +48,16 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // BUGFIX-in-progress (laporan Zen: Dashboard loading terus, belum
-      // ketemu akar masalah pastinya lewat baca kode - ini pengaman
-      // sementara supaya minimal gak nyangkut SELAMANYA kalau ada
-      // penyebab lain yang belum ketauan, dan errornya ke-log biar bisa
-      // ditelusuri lebih lanjut kalau kejadian lagi).
+      // BUGFIX-in-progress (laporan Zen: Dashboard loading terus) - akar
+      // masalahnya sudah ketemu & diperbaiki di statusCache.js (statusMatrix
+      // dulu ikut nyisir node_modules dkk sampai puluhan ribu file, jelas
+      // gak muat di 15 detik). Timeout ini TETAP dipertahankan sebagai
+      // pengaman kedua (bukan lagi tumpuan utama) - kalau suatu saat ada
+      // repo yang genuinely butuh lebih lama (repo besar, HP lambat),
+      // gagal jelas dengan pesan error lebih baik daripada nyangkut diam
+      // selamanya. Naik jadi 25 detik (dari 15) khusus buat status repo,
+      // ngasih margin ekstra buat repo yang masih agak besar walau
+      // node_modules dkk sudah di-skip.
       const [a, list] = await withTimeout(
         Promise.all([getActiveRepo(), listLocalRepos()]),
         15000,
@@ -60,7 +65,7 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
       );
       setActive(a);
       setRepoCount(list.length);
-      const s = await withTimeout(getRepoStatusSummary(a), 15000, 'Ambil status repo');
+      const s = await withTimeout(getRepoStatusSummary(a), 25000, 'Ambil status repo');
       setSummary(s);
     } catch (e) {
       await logError('Dashboard gagal load', e?.message);

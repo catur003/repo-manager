@@ -20,8 +20,17 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { COLORS } from '../theme';
 
-const LAYER_SCALES = [1, 0.72, 0.46, 0.24];
-const LAYER_OPACITIES = [0.1, 0.16, 0.24, 0.36];
+// PERF (8 Agustus 2026, laporan Zen "app lag"): tadinya 4 layer per blob x
+// 4 blob = 16 View transparan yang di-composite TERUS MENERUS di root app
+// (mounted sekali di App.js, jalan selama app dibuka, di semua layar).
+// useNativeDriver:true bikin animasinya sendiri gak makan JS thread, TAPI
+// tiap layer tetap butuh GPU nge-blend alpha overlap - di HP kelas
+// menengah-bawah ini nambah beban render/overdraw yang konstan, ikut
+// kerasa di scroll list berat (WorkingTreeScreen dkk) yang jalan
+// BARENGAN aurora di belakangnya. Dipangkas ke 2 layer/blob (separuh
+// draw call) - efek gradasi masih ada, cuma gak sehalus sebelumnya.
+const LAYER_SCALES = [1, 0.46];
+const LAYER_OPACITIES = [0.14, 0.3];
 
 function Blob({ spec }) {
   const progress = useRef(new Animated.Value(0)).current;

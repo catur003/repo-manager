@@ -34,7 +34,16 @@ const VARIANT_BG = {
 // terulang secara diam-diam.
 const LIGHT_BG_VARIANTS = new Set(['secondary']);
 
-export function Button({ title, onPress, loading, variant = 'primary', disabled, style }) {
+// PERF (8 Agustus 2026, laporan Zen "app lag"): semua komponen presentational
+// di file ini sekarang dibungkus React.memo. Root cause lag: layar dengan
+// daftar panjang (WorkingTreeScreen dkk) taruh state (mis. TextInput pesan
+// commit) SATU LEVEL di atas ScrollView yang isinya puluhan/ratusan PillRow -
+// tiap ketikan keystroke re-render seluruh function component layar, yang
+// tanpa memo ikut me-render ULANG setiap baris list walau propnya sama
+// persis. React.memo bikin React skip re-render kalau props (shallow
+// compare) tidak berubah - keystroke di TextInput jadi TIDAK lagi
+// menggerakkan ratusan baris list yang tidak terkait.
+export const Button = React.memo(function Button({ title, onPress, loading, variant = 'primary', disabled, style }) {
   const isLight = LIGHT_BG_VARIANTS.has(variant);
   const fg = isLight ? COLORS.ink : COLORS.onAccent;
   return (
@@ -53,45 +62,55 @@ export function Button({ title, onPress, loading, variant = 'primary', disabled,
       {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.btnText, { color: fg }]}>{title}</Text>}
     </TouchableOpacity>
   );
-}
+});
 
-export function Card({ children, style }) {
+export const Card = React.memo(function Card({ children, style }) {
   return <View style={[styles.card, style]}>{children}</View>;
-}
+});
 
-export function ErrorBanner({ message }) {
+export const ErrorBanner = React.memo(function ErrorBanner({ message }) {
   if (!message) return null;
   return (
     <View style={styles.errorBox}>
       <Text style={styles.errorText}>{message}</Text>
     </View>
   );
-}
+});
 
 /** Banner info gaya "Beta, read-only..." di File Viewer zenvps - kotak
  * lavender lembut buat catatan/instruksi, bukan error. */
-export function InfoBanner({ children }) {
+export const InfoBanner = React.memo(function InfoBanner({ children }) {
   return (
     <View style={infoStyles.box}>
       <Text style={infoStyles.text}>{children}</Text>
     </View>
   );
-}
+});
 
-export function SectionTitle({ children, style }) {
+export const SectionTitle = React.memo(function SectionTitle({ children, style }) {
   return <Text style={[styles.sectionTitle, style]}>{children}</Text>;
-}
+});
 
 /**
  * PillRow - baris list bulat penuh (stadium shape), gaya "File Viewer"
  * zenvps: icon (Feather, vector - bukan emoji) di lingkaran kiri + label,
  * satu baris per item.
  */
-export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default', disabled = false }) {
-  const Wrapper = onPress ? Pressable : View;
+// PERF: tambahan `onToggle` + `value` (opsional, dipakai list toggle-select
+// kayak WorkingTreeScreen) di samping `onPress` yang sudah ada. Alasannya:
+// kalau parent nulis `onPress={() => toggleSelect(e.filepath)}` langsung di
+// .map(), function itu DIBUAT BARU tiap render walau PillRow-nya di-memo -
+// hasilnya memo selalu gagal (prop "berubah" terus) dan baris tetap
+// re-render semua. Dengan `onToggle` (referensi stabil dari useCallback di
+// parent) + `value` (string primitif), PillRow sendiri yang bikin closure
+// `() => onToggle(value)` DI DALAM render-nya sendiri - closure baru ini
+// aman karena tidak pernah dibandingkan React.memo (cuma dipakai internal).
+export const PillRow = React.memo(function PillRow({ icon, label, sublabel, onPress, onToggle, value, right, tone = 'default', disabled = false }) {
+  const handlePress = onToggle ? () => onToggle(value) : onPress;
+  const Wrapper = handlePress ? Pressable : View;
   return (
     <Wrapper
-      onPress={disabled ? undefined : onPress}
+      onPress={disabled ? undefined : handlePress}
       style={({ pressed }) => [
         pillStyles.row,
         tone === 'accent' && pillStyles.rowAccent,
@@ -99,7 +118,7 @@ export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default
         tone === 'danger' && pillStyles.rowDanger,
         tone === 'warning' && pillStyles.rowWarning,
         disabled && { opacity: 0.5 },
-        pressed && onPress && !disabled ? { opacity: 0.7 } : null,
+        pressed && handlePress && !disabled ? { opacity: 0.7 } : null,
       ]}
     >
       {icon ? (
@@ -122,7 +141,7 @@ export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default
       {right}
     </Wrapper>
   );
-}
+});
 
 /**
  * Tile - kartu menu persegi buat grid "Aksi Cepat" ala zenvps Dashboard.
@@ -131,7 +150,7 @@ export function PillRow({ icon, label, sublabel, onPress, right, tone = 'default
  * di-tap tapi kasih tahu status fase-nya, sama pola dengan tombol
  * Push/Pull di CompareScreen).
  */
-export function Tile({ icon, label, badge, soon, onPress }) {
+export const Tile = React.memo(function Tile({ icon, label, badge, soon, onPress }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [tileStyles.tile, pressed && { opacity: 0.75 }, soon && tileStyles.tileSoon]}>
       {icon ? (
@@ -143,13 +162,13 @@ export function Tile({ icon, label, badge, soon, onPress }) {
       {badge ? <Text style={tileStyles.badge}>{badge}</Text> : null}
     </Pressable>
   );
-}
+});
 
 /** Kartu hero gradasi-semu ala "Server Online" zenvps - RN gak punya
  * gradient bawaan tanpa dependency native baru, jadi didekati pakai warna
  * solid COLORS.accent + blob translucent dekoratif (pola sama dengan
  * AuroraBackground, cuma dipakai lokal di satu kartu). */
-export function HeroCard({ eyebrow, title, subtitle, children }) {
+export const HeroCard = React.memo(function HeroCard({ eyebrow, title, subtitle, children }) {
   return (
     <View style={heroStyles.card}>
       <View style={heroStyles.blobA} />
@@ -162,7 +181,7 @@ export function HeroCard({ eyebrow, title, subtitle, children }) {
       </View>
     </View>
   );
-}
+});
 
 /**
  * StatusTable - tabel label/value dua kolom, gaya panel "Dashboard" CLI
@@ -180,7 +199,7 @@ export function HeroCard({ eyebrow, title, subtitle, children }) {
  * permintaan Zen 7 Agustus 2026, biar gak semua baris keliatan sama rata
  * padahal maknanya beda (aman vs perlu perhatian vs berbahaya).
  */
-export function StatusTable({ rows }) {
+export const StatusTable = React.memo(function StatusTable({ rows }) {
   return (
     <View>
       {rows.map((r, i) => (
@@ -193,19 +212,19 @@ export function StatusTable({ rows }) {
       ))}
     </View>
   );
-}
+});
 
 /** SuccessBanner - versi hijau dari InfoBanner, khusus buat pesan
  * "berhasil, langkah selanjutnya..." (permintaan Zen) - beda warna dari
  * InfoBanner (netral/biru) supaya jelas ini kabar baik, bukan cuma info
  * biasa. */
-export function SuccessBanner({ children }) {
+export const SuccessBanner = React.memo(function SuccessBanner({ children }) {
   return (
     <View style={successStyles.box}>
       <Text style={successStyles.text}>{children}</Text>
     </View>
   );
-}
+});
 
 /**
  * TopBar - baris atas FIXED (di luar ScrollView) berisi tombol
@@ -215,7 +234,7 @@ export function SuccessBanner({ children }) {
  * jauh dulu buat balik. Sekarang ada juga di atas, selalu kelihatan
  * tanpa perlu scroll sama sekali.
  */
-export function TopBar({ title, onBack, backLabel = 'Kembali' }) {
+export const TopBar = React.memo(function TopBar({ title, onBack, backLabel = 'Kembali' }) {
   return (
     <View style={topBarStyles.row}>
       <Pressable onPress={onBack} hitSlop={8}>
@@ -225,7 +244,7 @@ export function TopBar({ title, onBack, backLabel = 'Kembali' }) {
       <View style={{ width: 60 }} />
     </View>
   );
-}
+});
 
 // Badge status repo (dipakai Local Repos: Clean/Modified, dan Compare:
 // Sinkron/Lokal Lebih Baru/GitHub Lebih Baru/Diverged). Warna & label
@@ -240,7 +259,7 @@ const STATUS_MAP = {
   unknown: { label: 'Belum dicek', fg: COLORS.inkFaint, bg: COLORS.divider },
 };
 
-export function StatusBadge({ status, label }) {
+export const StatusBadge = React.memo(function StatusBadge({ status, label }) {
   const cfg = STATUS_MAP[status] || STATUS_MAP.unknown;
   return (
     <View style={[badgeStyles.pill, { backgroundColor: cfg.bg }]}>
@@ -248,7 +267,7 @@ export function StatusBadge({ status, label }) {
       <Text style={[badgeStyles.label, { color: cfg.fg }]}>{label || cfg.label}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   btn: {

@@ -19,6 +19,7 @@ import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
 import { getStatusMatrixCached, invalidateStatusCache } from './statusCache';
+import { HEAVY_FOLDERS } from './heavyFolders';
 
 /** Klasifikasi 1 baris statusMatrix jadi kategori yang gampang dibaca +
  * dua flag (unstagedChange/stagedChange) buat nentuin file itu tampil di
@@ -157,9 +158,12 @@ export async function amendCommit(dir, newMessage, author) {
 // FITUR BARU (permintaan Zen, bukan dari CLI asli): cek folder berat umum
 // yang gak ke-cover .gitignore sebelum user nge-Add, biar gak gak sengaja
 // commit node_modules dkk.
+//
+// (8 Agustus 2026) HEAVY_FOLDERS sekarang diimpor dari heavyFolders.js -
+// list yang sama dipakai statusCache.js buat nge-skip folder ini pas
+// statusMatrix() supaya gak lag (lihat catatan performa di sana). Dulu
+// dua list terpisah gampang out-of-sync kalau nambah satu doang.
 // ---------------------------------------------------------------------
-
-const HEAVY_FOLDERS = ['node_modules', '.expo', 'dist', 'build', '__pycache__', 'venv', '.next', '.venv'];
 
 function gitignoreCovers(gitignoreContent, folderName) {
   const lines = gitignoreContent.split('\n').map((l) => l.trim());

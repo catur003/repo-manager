@@ -85,14 +85,21 @@ export default function WorkingTreeScreen({ repo, author, onBack }) {
     return false;
   }, [mode]);
 
-  const toggleSelect = (filepath) => {
+  // PERF (8 Agustus 2026, laporan Zen "app lag"): dibungkus useCallback
+  // (referensi fungsi stabil antar render) supaya bisa dipakai lewat prop
+  // `onToggle` PillRow yang baru - lihat catatan di UI.js. Sebelumnya tiap
+  // baris file dikasih `onPress={() => toggleSelect(e.filepath)}` yang
+  // dibuat ulang setiap render, jadi PillRow gak pernah bisa di-skip
+  // walau di-memo. Ketik satu huruf di kolom pesan commit = re-render
+  // SEMUA baris unstaged/staged, kerasa lag banget kalau file-nya banyak.
+  const toggleSelect = useCallback((filepath) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(filepath)) next.delete(filepath);
       else next.add(filepath);
       return next;
     });
-  };
+  }, []);
 
   const handleAddAll = async () => {
     setBusy(true);
@@ -286,7 +293,8 @@ export default function WorkingTreeScreen({ repo, author, onBack }) {
                 icon={selected.has(e.filepath) ? 'check-square' : 'square'}
                 label={e.filepath}
                 sublabel={e.category}
-                onPress={() => toggleSelect(e.filepath)}
+                onToggle={toggleSelect}
+                value={e.filepath}
               />
             ))}
             <View style={styles.rowButtons}>

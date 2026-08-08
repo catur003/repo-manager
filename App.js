@@ -202,7 +202,7 @@ function AppShell() {
               <RepoListScreen token={token} onCloned={bumpRefresh} />
             </View>
             <View style={{ flex: 1, display: tab === 'local' ? 'flex' : 'none' }}>
-              <LocalReposScreen token={token} onOpenCompare={setCompareRepo} onOpenUpload={setUploadRepo} onOpenWorkingTree={setWorkingTreeRepo} />
+              <LocalReposScreen token={token} onOpenCompare={setCompareRepo} onOpenUpload={setUploadRepo} onOpenWorkingTree={setWorkingTreeRepo} refreshKey={refreshKey} />
             </View>
             <View style={{ flex: 1, display: tab === 'settings' ? 'flex' : 'none' }}>
               <SettingsScreen profile={profile} onLogout={handleLogout} onOpenStorageManager={() => setStorageManagerOpen(true)} />

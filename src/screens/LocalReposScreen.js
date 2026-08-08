@@ -16,8 +16,9 @@ import {
 import { getWorkingTreeStatus } from '../git/compareRepository';
 import { logActivity, logError } from '../logging/logger';
 import { timeAgo } from '../utils/format';
+import { withTimeout } from '../utils/withTimeout';
 
-export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, onOpenWorkingTree }) {
+export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, onOpenWorkingTree, refreshKey }) {
   const [repos, setRepos] = useState([]);
   const [statuses, setStatuses] = useState({}); // id -> 'clean' | 'modified'
   const [activeId, setActiveId] = useState(null);
@@ -36,7 +37,7 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, o
     const entries = await Promise.all(
       list.map(async (r) => {
         try {
-          const s = await getWorkingTreeStatus(r.dir);
+          const s = await withTimeout(getWorkingTreeStatus(r.dir), 10000, `Cek status ${r.fullName}`);
           return [r.id, s];
         } catch {
           return [r.id, 'unknown'];
@@ -49,7 +50,13 @@ export default function LocalReposScreen({ token, onOpenCompare, onOpenUpload, o
 
   useEffect(() => {
     load();
-  }, [load]);
+    // BUGFIX (laporan Zen): sejak layar tab gak di-unmount lagi (fix
+    // "kehentak" sebelumnya), layar ini gak pernah reload otomatis abis
+    // clone baru - karena useEffect-nya cuma jalan sekali pas mount
+    // pertama, dan gak pernah remount lagi. Sekarang dengerin
+    // `refreshKey` juga (dinaikkan tiap clone/aksi lain lewat
+    // bumpRefresh() di App.js), biar reload beneran kejadian.
+  }, [load, refreshKey]);
 
   const handleUse = async (repo) => {
     await setActiveRepo(repo.id);

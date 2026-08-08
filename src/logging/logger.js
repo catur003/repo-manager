@@ -56,10 +56,29 @@ export function redactSecrets(text) {
 // baru nunggu tulisan sebelumnya ke path YANG SAMA selesai dulu, gak ada
 // lagi race read-modify-write.
 const writeQueues = new Map(); // path -> Promise (tulisan terakhir yang lagi jalan)
+const WRITE_TIMEOUT_MS = 5000; // BUGFIX (laporan Zen): antrian gak boleh macet selamanya
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(undefined), ms)),
+  ]);
+}
 
 function queueWrite(path, task) {
   const prev = writeQueues.get(path) || Promise.resolve();
-  const next = prev.then(task, task); // tetap jalanin task walau tulisan sebelumnya gagal
+  // BUGFIX (laporan Zen): dulu `prev.then(task, task)` tanpa batas waktu -
+  // kalau SATU tulisan macet (mis. FileSystem hang), SEMUA log berikutnya
+  // ke file yang sama ikut nunggu selamanya. Ini yang bikin Compare
+  // (manggil `await logDebug()` di jalur suksesnya) sama Local Repos
+  // kelihatan "loading terus kayak crash" - bukan crash beneran, nyangkut
+  // nunggu antrian log yang gak pernah kelar. Sekarang DUA lapis timeout:
+  // 1) nunggu tulisan SEBELUMNYA maksimal 5 detik (biar antrian jalan
+  //    terus buat yang lain), 2) tulisan SEKARANG sendiri juga dikasih
+  //    batas 5 detik (biar pemanggil yang lagi nunggu ini gak nyangkut
+  //    juga kalau tulisan ini sendiri yang macet).
+  const runTask = () => withTimeout(task(), WRITE_TIMEOUT_MS);
+  const next = withTimeout(prev, WRITE_TIMEOUT_MS).then(runTask, runTask);
   writeQueues.set(path, next);
   return next;
 }
@@ -126,6 +145,30 @@ export async function readRecentActivity(n = 30) {
   } catch {
     return [];
   }
+}
+
+async function readLogFile(path) {
+  try {
+    const info = await FileSystem.getInfoAsync(path);
+    if (!info.exists) return '';
+    return await FileSystem.readAsStringAsync(path);
+  } catch {
+    return '';
+  }
+}
+
+/** Baca Error Log & Debug Log TERPISAH (bukan digabung jadi 1 string) -
+ * BUGFIX (laporan Zen): dulu exportDebugBundle() nyatuin dua-duanya jadi
+ * satu string panjang, ditampilin di 1 kotak scroll - Error Log (yang
+ * paling penting) gampang ke-"kubur" sama Debug Log yang jauh lebih
+ * sering nambah (mis. listUserRepos tiap buka tab GitHub Repos). Dipakai
+ * SettingsScreen buat nampilin 2 kotak terpisah yang jelas bedanya. */
+export async function readErrorLog() {
+  return readLogFile(ERROR_LOG);
+}
+
+export async function readDebugLog() {
+  return readLogFile(DEBUG_LOG);
 }
 
 /**

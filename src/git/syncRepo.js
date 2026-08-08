@@ -166,7 +166,12 @@ export async function pullRepo(dir, branch, token, author) {
 
   if (willStash) {
     try {
-      await git.stash({ fs, dir, op: 'push', message: stashMessage });
+      // BUGFIX (laporan Zen): stash push isomorphic-git internal-nya bikin
+      // commit juga (persis stash asli), jadi butuh `author` - gak ada
+      // konsep .git/config global kayak git asli buat isi ini otomatis.
+      // Dulu gak dikirim sama sekali walau pullRepo() udah nerima `author`
+      // dari pemanggilnya (dipakai buat git.pull, kelupaan buat stash).
+      await git.stash({ fs, dir, op: 'push', message: stashMessage, author });
       invalidateStatusCache(dir);
       await logActivity('Auto-stash sebelum pull berhasil');
     } catch (e) {

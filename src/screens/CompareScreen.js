@@ -16,6 +16,7 @@ import { COLORS, SPACING } from '../theme';
 import { compareRepository } from '../git/compareRepository';
 import { getCurrentBranch } from '../git/branchOps';
 import { useSyncActions } from '../hooks/useSyncActions';
+import { withTimeout } from '../utils/withTimeout';
 
 const RECOMMENDATION = {
   synced: 'Tidak ada aksi diperlukan.',
@@ -41,7 +42,7 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
     try {
       const currentBranch = (await getCurrentBranch(repo.dir)) || repo.defaultBranch;
       setBranch(currentBranch);
-      const r = await compareRepository({ dir: repo.dir, token, remoteBranch: currentBranch });
+      const r = await withTimeout(compareRepository({ dir: repo.dir, token, remoteBranch: currentBranch }), 25000, 'Compare');
       setResult(r);
     } catch (e) {
       setError(e.message);

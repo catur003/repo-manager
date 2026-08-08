@@ -20,8 +20,8 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { Button, Card, SectionTitle, Tile, StatusTable, SuccessBanner } from '../components/UI';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import { Button, Card, SectionTitle, Tile, StatusTable, SuccessBanner, PillRow } from '../components/UI';
 import { appAlert, LoadingModal } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
@@ -83,6 +83,34 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   const behindNum = Number(summary?.behind) || 0;
   const aheadBehindTone = aheadNum > 0 && behindNum > 0 ? 'danger' : behindNum > 0 ? 'warning' : aheadNum > 0 ? 'success' : undefined;
   const changedTone = summary?.changedFiles > 0 ? 'warning' : 'success';
+
+  // FITUR BARU (permintaan Zen): info "lokal lebih baru"/"GitHub lebih
+  // baru" yang jelas di Dashboard, bukan cuma angka ahead/behind mentah.
+  // Kasus diverged (ahead>0 DAN behind>0) sengaja dijelasin beda dari
+  // dua kasus sepihak - itu situasi paling gampang disalahartiin kalau
+  // cuma ditulis satu kalimat generik.
+  let syncLabel = null;
+  let syncSublabel = null;
+  let syncTone = 'default';
+  if (summary && summary.upstream && summary.upstream !== '-') {
+    if (aheadNum > 0 && behindNum > 0) {
+      syncLabel = 'Riwayat Bercabang (Diverged)';
+      syncSublabel = `${aheadNum} commit lokal beda dari ${behindNum} commit GitHub - Fetch & review dulu`;
+      syncTone = 'danger';
+    } else if (behindNum > 0) {
+      syncLabel = 'GitHub Lebih Baru';
+      syncSublabel = `${behindNum} commit baru di GitHub, belum di-Pull`;
+      syncTone = 'warning';
+    } else if (aheadNum > 0) {
+      syncLabel = 'Lokal Lebih Baru';
+      syncSublabel = `${aheadNum} commit siap di-Push`;
+      syncTone = 'success';
+    } else {
+      syncLabel = 'Sinkron';
+      syncSublabel = 'Lokal dan GitHub sama';
+      syncTone = 'success';
+    }
+  }
 
   const rows = summary
     ? [
@@ -160,12 +188,15 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerRow}>
-        <SectionTitle style={{ marginBottom: 0 }}>Dashboard</SectionTitle>
-        <Button title="Refresh" variant="secondary" onPress={handleRealtimeRefresh} style={styles.refreshBtn} />
-      </View>
-      <Text style={styles.refreshHint}>Ahead/Behind & status di bawah dari data fetch terakhir - tap Refresh buat cek beneran ke GitHub sekarang.</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: SPACING.xl }}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRealtimeRefresh} tintColor={COLORS.accent} />}
+    >
+      <SectionTitle>Dashboard</SectionTitle>
+
+      {syncLabel ? <PillRow icon="git-commit" tone={syncTone} label={syncLabel} sublabel={syncSublabel} /> : null}
 
       {!loading && summary?.lastPushMs && Date.now() - summary.lastPushMs < RECENT_MS ? (
         <SuccessBanner>
@@ -183,6 +214,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
         {loading ? <ActivityIndicator color={COLORS.accent} /> : <StatusTable rows={rows} />}
       </Card>
 
+      {/* Dipindah ke bawah tabel (permintaan Zen) - dulu nempel di
+          sebelah judul "Dashboard" di atas. */}
+      <Button title="Refresh (fetch ke GitHub)" variant="secondary" onPress={handleRealtimeRefresh} />
+      <Text style={styles.refreshHint}>Ahead/Behind & status di atas dari data fetch terakhir - tap buat cek beneran ke GitHub sekarang.</Text>
+
       <Text style={styles.summary}>{repoCount} repo tersimpan di HP ini.</Text>
 
       <SectionTitle>Aksi Cepat</SectionTitle>
@@ -198,9 +234,7 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.lg },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  refreshBtn: { paddingVertical: 6, paddingHorizontal: SPACING.md },
-  refreshHint: { fontSize: 11, color: COLORS.inkFaint, marginBottom: SPACING.sm },
+  refreshHint: { fontSize: 11, color: COLORS.inkFaint, marginTop: 4, marginBottom: SPACING.sm },
   summary: { fontSize: 12, color: COLORS.inkFaint, marginTop: SPACING.sm, marginBottom: SPACING.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });

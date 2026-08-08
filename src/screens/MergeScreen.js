@@ -122,7 +122,9 @@ export default function MergeScreen({ repo, token, author, onBack }) {
             if (res.conflict) {
               appAlert(
                 'Merge Gagal - Conflict',
-                'Ada perubahan yang bentrok dan tidak bisa digabung otomatis. Working directory TIDAK disentuh. Selesaikan lewat GitHub (buka Pull Request, ada conflict editor di sana), atau pakai git di komputer.'
+                `Ada perubahan yang bentrok dan tidak bisa digabung otomatis. Working directory TIDAK disentuh.${
+                  res.restoredBranch ? ` Kamu udah dibalikin ke branch "${res.restoredBranch}".` : ''
+                } Selesaikan lewat GitHub (buka Pull Request, ada conflict editor di sana), atau pakai git di komputer.`
               );
               return;
             }

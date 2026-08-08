@@ -68,7 +68,7 @@ export default function BranchScreen({ repo, token, onBack }) {
     setBusy(true);
     setBusyLabel(`Checkout ke ${name}...`);
     try {
-      await checkoutBranch(repo.dir, name);
+      await checkoutBranch(repo.dir, name, token);
       appAlert('Berhasil', `Sekarang di branch "${name}".`);
       await load();
     } catch (e) {
@@ -184,7 +184,7 @@ export default function BranchScreen({ repo, token, onBack }) {
     setBusy(true);
     setBusyLabel(`Checkout ke ${name}...`);
     try {
-      await checkoutBranch(repo.dir, name);
+      await checkoutBranch(repo.dir, name, token);
       appAlert('Berhasil', `Branch lokal "${name}" dibuat dari GitHub dan sekarang aktif.`);
       await refreshSync();
       await load();

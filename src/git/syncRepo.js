@@ -99,6 +99,7 @@ export async function pushRepo(dir, branch, token) {
     }
     await logActivity(`Push berhasil (${branch})`);
     await updateRepoEvent(dir, 'lastPush', branch);
+    invalidateStatusCache(dir); // defensif (audit Zen BUG-2) - push sendiri gak nyentuh working tree, tapi gak ada ruginya mastiin
     const afterOid = await git.resolveRef({ fs, dir, ref: 'HEAD' }).catch(() => null);
     const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);
     return { rejected: false, ok: true, changedFiles };
@@ -148,11 +149,25 @@ export async function forcePushRepo(dir, branch, token) {
  * Balikin juga `changedFiles` (hasil diffCommitFiles antara HEAD sebelum
  * & sesudah pull) buat ringkasan informatif di UI (permintaan Zen #5).
  */
+async function getUntrackedFiles(dir) {
+  const rows = await getStatusMatrixCached(dir);
+  return rows.filter(([, head, workdir, stage]) => head === 0 && stage === 0 && workdir !== 0).map(([filepath]) => filepath);
+}
+
 export async function pullRepo(dir, branch, token, author) {
   const stashedFiles = await getTrackedDirtyFiles(dir);
   const wasDirty = stashedFiles.length > 0;
   const autoStashEnabled = await getSetting('autoStash');
   const stashMessage = `auto-stash-before-pull:${Date.now()}`;
+  // BUGFIX (audit Zen, BUG-1): auto-stash cuma nyimpen tracked files
+  // (sama kayak git asli tanpa -u - lihat catatan di getTrackedDirtyFiles).
+  // File baru yang belum pernah di-Add TIDAK ikut ke-amanin ke stash.
+  // Biasanya aman (pull gak nyentuh file yang gak ada hubungannya), tapi
+  // KALAU kebetulan GitHub juga punya file baru dengan nama sama persis,
+  // bisa ketimpa/conflict. Dikasih tau ke user lewat return value,
+  // bukan diblokir (masih jarang kejadian, blokir tiap ada file baru
+  // bakal ganggu banget).
+  const untrackedFiles = await getUntrackedFiles(dir);
 
   if (wasDirty && !autoStashEnabled) {
     return {
@@ -214,14 +229,14 @@ export async function pullRepo(dir, branch, token, author) {
   const changedFiles = await diffCommitFiles(dir, beforeOid, afterOid).catch(() => null);
 
   if (!willStash) {
-    return { ok: true, stashApplied: false, changedFiles };
+    return { ok: true, stashApplied: false, changedFiles, untrackedFiles };
   }
 
   try {
     await git.stash({ fs, dir, op: 'apply' });
     invalidateStatusCache(dir);
     await logActivity('Stash diterapkan balik setelah pull');
-    return { ok: true, stashApplied: true, stashKept: true, stashMessage, changedFiles, stashedFiles };
+    return { ok: true, stashApplied: true, stashKept: true, stashMessage, changedFiles, stashedFiles, untrackedFiles };
   } catch (e) {
     await logError('Gagal apply stash setelah pull', e?.message);
     return {

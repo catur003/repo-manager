@@ -26,6 +26,16 @@ async function resolveActiveBranch(repo) {
   return current || repo.defaultBranch;
 }
 
+// BUGFIX (audit Zen, BUG-3): Force Push ke branch penting (main/master/
+// production) risikonya lebih gede dari branch biasa - histori tim bisa
+// ketimpa. Konfirmasi ketik "YA" tetap wajib buat SEMUA branch (gak
+// berubah), ini nambah warning EKSTRA khusus kalau namanya cocok pola
+// umum branch penting.
+const PROTECTED_BRANCH_PATTERNS = [/^main$/i, /^master$/i, /^prod(uction)?$/i, /^release$/i];
+function isProtectedBranchName(name) {
+  return PROTECTED_BRANCH_PATTERNS.some((re) => re.test(name || ''));
+}
+
 /** Format daftar file berubah buat ditempel di pesan appAlert - dibatasi
  * (diffCommitFiles udah nge-cap + hitung sisa), biar gak kepanjangan. */
 function formatChangedFiles(changedFiles) {
@@ -33,6 +43,13 @@ function formatChangedFiles(changedFiles) {
   const list = changedFiles.files.join('\n');
   const more = changedFiles.remaining > 0 ? `\n... dan ${changedFiles.remaining} file lainnya` : '';
   return `\n\nFile berubah (${changedFiles.total}):\n${list}${more}`;
+}
+
+/** Peringatan singkat kalau ada file baru (untracked) - gak ikut
+ * ke-amanin auto-stash (audit Zen BUG-1), biar user sadar. */
+function formatUntrackedWarning(untrackedFiles) {
+  if (!untrackedFiles || untrackedFiles.length === 0) return '';
+  return `\n\nCatatan: ${untrackedFiles.length} file baru (belum di-Add) gak ikut diamankan stash - biasanya aman, tapi cek dulu kalau ada file yang namanya sama kayak yang baru di-pull.`;
 }
 
 export function useSyncActions(repo, token, author, onOpenWorkingTree) {
@@ -65,7 +82,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         appAlert(
           res.stashApplied ? 'Pull Berhasil' : 'Pull Berhasil, Tapi...',
           res.stashApplied
-            ? `Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.${formatChangedFiles(res.changedFiles)}`
+            ? `Perubahan lokal kamu sudah diterapkan balik. Cek dulu hasilnya (buka Working Tree) - kalau semua aman, hapus cadangan stash. Kalau ada yang aneh, buang hasil terapan dan stash-nya tetap tersimpan.${formatChangedFiles(res.changedFiles)}${formatUntrackedWarning(res.untrackedFiles)}`
             : res.error,
           res.stashApplied
             ? [
@@ -102,7 +119,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
         return;
       }
 
-      appAlert('Pull Berhasil', `Perubahan terbaru dari GitHub sudah digabung.${formatChangedFiles(res.changedFiles)}`);
+      appAlert('Pull Berhasil', `Perubahan terbaru dari GitHub sudah digabung.${formatChangedFiles(res.changedFiles)}${formatUntrackedWarning(res.untrackedFiles)}`);
       onDone?.();
     } catch (e) {
       setBusy(false);
@@ -132,10 +149,17 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
     }
   };
 
-  const startForcePush = () => setForcePushMode(true);
+  const [protectedBranchWarning, setProtectedBranchWarning] = useState(null);
+
+  const startForcePush = async () => {
+    setForcePushMode(true);
+    const branch = await resolveActiveBranch(repo);
+    setProtectedBranchWarning(isProtectedBranchName(branch) ? branch : null);
+  };
   const cancelForcePush = () => {
     setForcePushMode(false);
     setConfirmText('');
+    setProtectedBranchWarning(null);
   };
 
   const confirmForcePush = async (onDone) => {
@@ -161,6 +185,7 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
     doPush,
     doPull,
     forcePushMode,
+    protectedBranchWarning,
     confirmText,
     setConfirmText,
     startForcePush,

@@ -20,7 +20,7 @@ import git from 'isomorphic-git';
 import { fs } from './fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { toFriendlyMessage } from './friendlyError';
-import { checkoutBranch } from './branchOps';
+import { checkoutBranch, getCurrentBranch } from './branchOps';
 import { invalidateStatusCache } from './statusCache';
 import { diffCommitFiles } from './diffTrees';
 
@@ -46,6 +46,14 @@ export async function previewMergeDiff(dir, source, target) {
  * pas (bukan generic error).
  */
 export async function mergeLocal(dir, source, target, author) {
+  // BUGFIX (audit Zen, BUG-6): dulu kalau merge gagal, user ketinggalan
+  // di branch TARGET (karena checkoutBranch ke target udah kejadian
+  // duluan) - padahal harusnya balik ke branch semula. Sekarang branch
+  // asal dicatat dulu, dan di-restore kalau merge-nya gagal (best-effort
+  // - kalau restore-nya sendiri gagal juga, biarin di target, jangan
+  // sampai nutupin error asli merge-nya).
+  const originalBranch = await getCurrentBranch(dir);
+
   try {
     await checkoutBranch(dir, target);
   } catch (e) {
@@ -64,10 +72,13 @@ export async function mergeLocal(dir, source, target, author) {
     };
   } catch (e) {
     await logError(`Merge ${source} ke ${target} gagal`, e?.message);
+    if (originalBranch && originalBranch !== target) {
+      await checkoutBranch(dir, originalBranch).catch(() => {});
+    }
     const msg = String(e?.message || '').toLowerCase();
     if (msg.includes('conflict') || msg.includes('merge')) {
-      await logActivity(`Merge ${source} ke ${target} gagal - conflict/tidak bisa auto-merge`);
-      return { conflict: true };
+      await logActivity(`Merge ${source} ke ${target} gagal - conflict/tidak bisa auto-merge, balik ke ${originalBranch || target}`);
+      return { conflict: true, restoredBranch: originalBranch };
     }
     throw new Error(toFriendlyMessage(e));
   }

@@ -29,6 +29,8 @@ import { getRepoStatusSummary } from '../git/repoStatus';
 import { getCurrentBranch } from '../git/branchOps';
 import { fetchRepo } from '../git/syncRepo';
 import { timeAgo } from '../utils/format';
+import { withTimeout } from '../utils/withTimeout';
+import { logError } from '../logging/logger';
 
 const RECENT_MS = 30 * 60 * 1000; // 30 menit - ambang "baru-baru ini" buat banner
 
@@ -45,12 +47,27 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [a, list] = await Promise.all([getActiveRepo(), listLocalRepos()]);
-    setActive(a);
-    setRepoCount(list.length);
-    const s = await getRepoStatusSummary(a);
-    setSummary(s);
-    setLoading(false);
+    try {
+      // BUGFIX-in-progress (laporan Zen: Dashboard loading terus, belum
+      // ketemu akar masalah pastinya lewat baca kode - ini pengaman
+      // sementara supaya minimal gak nyangkut SELAMANYA kalau ada
+      // penyebab lain yang belum ketauan, dan errornya ke-log biar bisa
+      // ditelusuri lebih lanjut kalau kejadian lagi).
+      const [a, list] = await withTimeout(
+        Promise.all([getActiveRepo(), listLocalRepos()]),
+        15000,
+        'Baca daftar repo lokal'
+      );
+      setActive(a);
+      setRepoCount(list.length);
+      const s = await withTimeout(getRepoStatusSummary(a), 15000, 'Ambil status repo');
+      setSummary(s);
+    } catch (e) {
+      await logError('Dashboard gagal load', e?.message);
+      appAlert('Gagal Memuat Dashboard', e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

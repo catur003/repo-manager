@@ -60,10 +60,23 @@ export async function listRemoteBranches(dir, remote = 'origin') {
  * `object` terima ref apa aja - dikonfirmasi dari docs resmi) baru
  * checkout - bukan ngarep isomorphic-git ngerjain otomatis.
  */
-export async function checkoutBranch(dir, branchName) {
+export async function checkoutBranch(dir, branchName, token) {
   try {
     const existsLocally = await git.resolveRef({ fs, dir, ref: `refs/heads/${branchName}` }).catch(() => null);
     if (!existsLocally) {
+      // BUGFIX (audit Zen, BUG-5): dulu langsung pakai
+      // refs/remotes/origin/<branch> apa adanya - kalau itu basi (belum
+      // di-fetch baru-baru ini), branch lokal yang dibuat ulang bisa
+      // ketinggalan dari versi terbaru di GitHub. Fetch ref itu spesifik
+      // dulu (bukan fetch semua branch - lebih ringan) sebelum dipakai,
+      // TAPI kalau gagal (offline dll) tetap lanjut pakai yang ada
+      // (mending basi daripada checkout gagal total gara-gara gak ada
+      // internet).
+      if (token) {
+        await git
+          .fetch({ fs, http, dir, ref: branchName, singleBranch: true, tags: false, onAuth: () => ({ username: token }) })
+          .catch(() => {});
+      }
       const remoteOid = await git.resolveRef({ fs, dir, ref: `refs/remotes/origin/${branchName}` }).catch(() => null);
       if (remoteOid) {
         await git.branch({ fs, dir, ref: branchName, object: `refs/remotes/origin/${branchName}` });

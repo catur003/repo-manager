@@ -94,6 +94,13 @@ export default function CompareScreen({ repo, token, author, onBack, onOpenWorki
 
       {sync.forcePushMode ? (
         <Card>
+          {sync.protectedBranchWarning ? (
+            <InfoBanner>
+              PERHATIAN: branch "{sync.protectedBranchWarning}" kelihatan seperti branch penting (main/master/
+              production). Force push ke sini biasanya cuma dilakukan kalau BENAR-BENAR yakin - pertimbangkan
+              lagi sebelum lanjut.
+            </InfoBanner>
+          ) : null}
           <InfoBanner>
             Force Push akan MENIMPA riwayat commit di GitHub dengan riwayat lokal. Perubahan orang lain yang
             belum kamu pull bisa HILANG. Ketik "YA" (huruf besar) untuk lanjut.

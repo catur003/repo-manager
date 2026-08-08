@@ -125,7 +125,11 @@ export async function renameBranch(dir, oldName, newName) {
 export async function isBranchMerged(dir, branchName, intoBranch) {
   const branchOid = await git.resolveRef({ fs, dir, ref: branchName }).catch(() => null);
   const intoOid = await git.resolveRef({ fs, dir, ref: intoBranch }).catch(() => null);
-  if (!branchOid || !intoOid) return true; // gak bisa dicek, jangan blokir - lebih aman fallback ke "anggap merged" drpd salah nge-block user
+  // BUGFIX (audit Zen, BUG-003): dulu fallback `true` (anggap sudah
+  // merge) kalau gak bisa dipastikan - salah arah buat operasi
+  // DESTRUKTIF (hapus branch). Sekarang gak bisa dipastikan = blokir
+  // (minta force), bukan izinkan diam-diam.
+  if (!branchOid || !intoOid) return false;
   if (branchOid === intoOid) return true;
   const ancestorsOfInto = await collectOids(dir, intoOid);
   return ancestorsOfInto.has(branchOid);

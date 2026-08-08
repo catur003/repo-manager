@@ -27,6 +27,7 @@ import { COLORS, SPACING, RADIUS } from '../theme';
 import { listLocalRepos, removeLocalRepo } from '../git/localRepos';
 import { getDirSizeBytes, getDeviceStorageInfo } from '../git/diskUsage';
 import { getLocalAheadBehind } from '../git/compareRepository';
+import { getCurrentBranch } from '../git/branchOps';
 import { REPOS_ROOT } from '../git/fsAdapter';
 import { logActivity, logError } from '../logging/logger';
 import { formatSize, timeAgo } from '../utils/format';
@@ -55,7 +56,11 @@ export default function StorageManagerScreen({ onBack }) {
     const result = [];
     for (const r of repos) {
       const sizeBytes = await getDirSizeBytes(`${REPOS_ROOT}${String(r.dir).replace(/^\/+/, '')}`);
-      const { status } = await getLocalAheadBehind(r.dir, r.defaultBranch).catch(() => ({ status: 'unknown' }));
+      // BUGFIX (audit Zen, BUG-004): dulu pakai r.defaultBranch statis,
+      // bukan branch yang beneran aktif sekarang - bisa salah nampilin
+      // "belum di-push" untuk branch yang bukan lagi dipakai.
+      const branch = (await getCurrentBranch(r.dir)) || r.defaultBranch;
+      const { status } = await getLocalAheadBehind(r.dir, branch).catch(() => ({ status: 'unknown' }));
       result.push({ ...r, sizeBytes, unpushed: status === 'ahead' || status === 'diverged' });
     }
     setRows(result);

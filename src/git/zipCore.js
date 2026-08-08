@@ -37,6 +37,10 @@ export function safeZipMemberPath(destDirUri, memberRelPath) {
     }
   }
   if (stack.length === 0) return null; // entry cuma nunjuk ke destDir sendiri
+  // BUGFIX (audit Zen, NEW-2): entry yang segmen manapun-nya ".git" bisa
+  // nimpa isi folder git internal (config, hooks, dst) kalau upload ke
+  // root repo - safeZipMemberPath dulu cuma ngeblok "../", gak ngeblok ini.
+  if (stack.some((seg) => seg === '.git')) return null;
   const base = destDirUri.replace(/\/+$/, '');
   return `${base}/${stack.join('/')}`;
 }

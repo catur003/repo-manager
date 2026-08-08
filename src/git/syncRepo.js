@@ -72,9 +72,18 @@ export async function pushRepo(dir, branch, token) {
     });
     if (result.ok === false || result?.error) {
       const msg = String(result.error || '').toLowerCase();
-      if (msg.includes('reject') || msg.includes('fast-forward')) {
+      // BUGFIX (audit Zen, NEW-9): dulu cek 'reject' sendirian - pola
+      // lama yang SAMA persis sama bug yang udah diperbaiki di
+      // friendlyError.js (kata "reject" muncul juga di error gak
+      // terkait, mis. wrapper Promise Rejection RN). Fix di
+      // friendlyError.js gak otomatis kepakai di sini karena jalur ini
+      // gak lewat toFriendlyMessage() - jadi wajib dibenerin terpisah,
+      // sama syaratnya: kata "push" WAJIB ikut ada.
+      if (msg.includes('push') && (msg.includes('reject') || msg.includes('fast-forward'))) {
+        await logError('Push ditolak (non-fast-forward)', result.error);
         return { rejected: true };
       }
+      await logError('Push gagal', result.error);
       throw new Error(result.error || 'Push gagal');
     }
     await logActivity(`Push berhasil (${branch})`);
@@ -84,7 +93,8 @@ export async function pushRepo(dir, branch, token) {
     return { rejected: false, ok: true, changedFiles };
   } catch (e) {
     const msg = String(e?.message || '').toLowerCase();
-    if (msg.includes('reject') || msg.includes('fast-forward')) {
+    if (msg.includes('push') && (msg.includes('reject') || msg.includes('fast-forward'))) {
+      await logError('Push ditolak (non-fast-forward)', e?.message);
       return { rejected: true };
     }
     await logError('Push gagal', e?.message);

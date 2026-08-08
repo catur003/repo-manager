@@ -49,14 +49,23 @@ export default function RepoListScreen({ token, onCloned }) {
 
   const handleClone = async (repo) => {
     const { warnings, recommendShallow } = await preflightClone(repo);
-    const proceed = () => runClone(repo, recommendShallow);
     if (warnings.length) {
-      appAlert('Sebelum clone', warnings.join('\n\n'), [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Lanjutkan', style: 'primary', onPress: proceed },
-      ]);
+      // BUGFIX (audit Zen, NEW-1): dulu "Lanjutkan" diam-diam ngunci ke
+      // shallow clone buat repo besar, gak ada cara pilih full clone
+      // walau user sadar konsekuensinya (dan sadar itu bikin ahead/behind
+      // & cek merge jadi kurang akurat buat riwayat lama - lihat BUG-005/006).
+      const buttons = [{ text: 'Batal', style: 'cancel' }];
+      if (recommendShallow) {
+        buttons.push(
+          { text: 'Shallow (disarankan)', style: 'primary', onPress: () => runClone(repo, true) },
+          { text: 'Full Clone', style: 'danger', onPress: () => runClone(repo, false) }
+        );
+      } else {
+        buttons.push({ text: 'Lanjutkan', style: 'primary', onPress: () => runClone(repo, recommendShallow) });
+      }
+      appAlert('Sebelum clone', warnings.join('\n\n'), buttons);
     } else {
-      proceed();
+      runClone(repo, recommendShallow);
     }
   };
 

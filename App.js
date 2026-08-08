@@ -212,7 +212,7 @@ function AppShell() {
 
       {/* insets.bottom diteruskan supaya tab bar tidak kepotong home
           indicator (iOS) / gesture bar (Android) di HP tanpa tombol fisik. */}
-      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && !stashRepo && !branchRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
+      {!compareRepo && !storageManagerOpen && !uploadRepo && !workingTreeRepo && !syncScreen && !stashRepo && !branchRepo && !mergeRepo && <TabBar active={tab} onChange={setTab} bottomInset={insets.bottom} />}
     </View>
   );
 }

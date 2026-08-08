@@ -251,12 +251,20 @@ export default function UploadScreen({ repo, onBack }) {
     setBusy(true);
     setBusyLabel('Menyalin file...');
     const destUri = destUriFor(dest);
+    // BUGFIX (laporan Zen): dulu `added` dihitung dari selisih JUMLAH file
+    // total sebelum/sesudah (filesAfter - filesBefore) - itu selalu 0
+    // kalau file yang di-upload NIMPA file yang udah ada (jumlah total
+    // gak berubah, isinya doang yang beda), dan `modified` malah di-hardcode
+    // 0 terus, gak pernah dicek beneran. Sekarang dicek langsung: apakah
+    // file di path tujuan itu sudah ada SEBELUM disalin.
+    const targetUri = `${destUri.replace(/\/+$/, '')}/${sourceName}`;
+    const existedBefore = (await FileSystem.getInfoAsync(targetUri).catch(() => ({ exists: false }))).exists;
     const filesBefore = await countFilesInDir(repoRealDir(repo));
     try {
       await copyFileToRepoFolder(sourceUri, destUri, sourceName);
       invalidateStatusCache(repo.dir);
       const filesAfter = await countFilesInDir(repoRealDir(repo));
-      setSummary({ added: filesAfter - filesBefore, modified: 0, filesBefore, filesAfter });
+      setSummary({ added: existedBefore ? 0 : 1, modified: existedBefore ? 1 : 0, filesBefore, filesAfter });
       await logActivity(`${flow === 'file' ? 'Upload File' : 'Upload ZIP (No Extract)'} berhasil ke ${repo.fullName}`);
       setMode('summary');
     } catch (e) {

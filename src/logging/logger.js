@@ -47,20 +47,40 @@ export function redactSecrets(text) {
   return out;
 }
 
+// BUGFIX (laporan Zen): appendLine() dulu baca-lalu-tulis TANPA kunci -
+// kalau 2 pemanggilan log kejadian hampir bersamaan (mis. Dashboard
+// refresh + Pull jalan bareng), keduanya bisa baca isi file yang sama
+// sebelum salah satu sempat nulis balik - yang nulis belakangan NIMPA
+// punya yang duluan, entry hilang tanpa jejak. Sekarang tiap path log
+// (activity/error/debug) punya antrian sendiri (`writeQueues`) - tulisan
+// baru nunggu tulisan sebelumnya ke path YANG SAMA selesai dulu, gak ada
+// lagi race read-modify-write.
+const writeQueues = new Map(); // path -> Promise (tulisan terakhir yang lagi jalan)
+
+function queueWrite(path, task) {
+  const prev = writeQueues.get(path) || Promise.resolve();
+  const next = prev.then(task, task); // tetap jalanin task walau tulisan sebelumnya gagal
+  writeQueues.set(path, next);
+  return next;
+}
+
 async function appendLine(path, line) {
-  try {
-    await ensureLogDir();
-    const info = await FileSystem.getInfoAsync(path);
-    if (info.exists && info.size > MAX_LOG_SIZE_BYTES) {
-      // Rotasi sederhana: buang file lama, mulai baru, daripada tumbuh tanpa batas.
-      await FileSystem.deleteAsync(path, { idempotent: true });
+  await queueWrite(path, async () => {
+    try {
+      await ensureLogDir();
+      let info = await FileSystem.getInfoAsync(path);
+      if (info.exists && info.size > MAX_LOG_SIZE_BYTES) {
+        // Rotasi sederhana: buang file lama, mulai baru, daripada tumbuh tanpa batas.
+        await FileSystem.deleteAsync(path, { idempotent: true });
+        info = { exists: false };
+      }
+      const existing = info.exists ? await FileSystem.readAsStringAsync(path) : '';
+      await FileSystem.writeAsStringAsync(path, existing + line + '\n');
+    } catch (e) {
+      // Kegagalan logging TIDAK BOLEH menghentikan aplikasi (sama seperti CLI asli).
+      console.warn('Logger gagal menulis:', e?.message);
     }
-    const existing = info.exists ? await FileSystem.readAsStringAsync(path) : '';
-    await FileSystem.writeAsStringAsync(path, existing + line + '\n');
-  } catch (e) {
-    // Kegagalan logging TIDAK BOLEH menghentikan aplikasi (sama seperti CLI asli).
-    console.warn('Logger gagal menulis:', e?.message);
-  }
+  });
 }
 
 function timestamp() {

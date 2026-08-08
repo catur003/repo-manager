@@ -22,10 +22,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Button, Card, SectionTitle, Tile, StatusTable, SuccessBanner } from '../components/UI';
-import { appAlert } from '../components/AppModals';
+import { appAlert, LoadingModal } from '../components/AppModals';
 import { COLORS, SPACING } from '../theme';
 import { getActiveRepo, listLocalRepos } from '../git/localRepos';
 import { getRepoStatusSummary } from '../git/repoStatus';
+import { getCurrentBranch } from '../git/branchOps';
+import { fetchRepo } from '../git/syncRepo';
 import { timeAgo } from '../utils/format';
 
 const RECENT_MS = 30 * 60 * 1000; // 30 menit - ambang "baru-baru ini" buat banner
@@ -34,11 +36,12 @@ function soonAlert(fase, nama) {
   appAlert('Belum tersedia', `"${nama}" direncanakan di Fase ${fase} (lihat dokumen konsep Bagian 7). Belum bisa dipakai sekarang.`);
 }
 
-export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash, onOpenBranch, onOpenMerge }) {
+export default function DashboardScreen({ profile, refreshKey, onNavigateTab, onOpenCompare, onOpenStorageManager, onOpenUpload, onOpenWorkingTree, onOpenSync, onOpenStash, onOpenBranch, onOpenMerge, token }) {
   const [summary, setSummary] = useState(null);
   const [repoCount, setRepoCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +56,28 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  // FITUR BARU (permintaan Zen): Dashboard normalnya offline (ahead/behind
+  // dari data fetch terakhir - lihat repoStatus.js kenapa), jadi kalau ada
+  // commit baru di GitHub (mis. diedit lewat web) app gak otomatis tau
+  // sampai ada Fetch/Pull. Tombol ini fetch BENERAN ke GitHub dulu, baru
+  // reload status - biar bisa cek up-to-date on-demand tanpa nunggu Pull.
+  const handleRealtimeRefresh = async () => {
+    if (!active) {
+      await load();
+      return;
+    }
+    setRefreshing(true);
+    try {
+      const branch = (await getCurrentBranch(active.dir)) || active.defaultBranch;
+      await fetchRepo(active.dir, branch, token);
+    } catch (e) {
+      appAlert('Fetch Gagal', e.message);
+    } finally {
+      setRefreshing(false);
+      await load();
+    }
+  };
 
   const aheadNum = Number(summary?.ahead) || 0;
   const behindNum = Number(summary?.behind) || 0;
@@ -136,7 +161,11 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: SPACING.xl }} showsVerticalScrollIndicator={false}>
-      <SectionTitle>Dashboard</SectionTitle>
+      <View style={styles.headerRow}>
+        <SectionTitle style={{ marginBottom: 0 }}>Dashboard</SectionTitle>
+        <Button title="Refresh" variant="secondary" onPress={handleRealtimeRefresh} style={styles.refreshBtn} />
+      </View>
+      <Text style={styles.refreshHint}>Ahead/Behind & status di bawah dari data fetch terakhir - tap Refresh buat cek beneran ke GitHub sekarang.</Text>
 
       {!loading && summary?.lastPushMs && Date.now() - summary.lastPushMs < RECENT_MS ? (
         <SuccessBanner>
@@ -162,12 +191,16 @@ export default function DashboardScreen({ profile, refreshKey, onNavigateTab, on
           <Tile key={t.label} icon={t.icon} label={t.label} badge={t.soon ? `Fase ${t.soon}` : t.badge} soon={!!t.soon} onPress={t.onPress} />
         ))}
       </View>
+      <LoadingModal visible={refreshing} label="Fetch ke GitHub..." icon="refresh-cw" />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: SPACING.lg },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  refreshBtn: { paddingVertical: 6, paddingHorizontal: SPACING.md },
+  refreshHint: { fontSize: 11, color: COLORS.inkFaint, marginBottom: SPACING.sm },
   summary: { fontSize: 12, color: COLORS.inkFaint, marginTop: SPACING.sm, marginBottom: SPACING.md },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });

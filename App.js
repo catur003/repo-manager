@@ -195,6 +195,7 @@ function AppShell() {
                 onOpenStash={setStashRepo}
                 onOpenBranch={setBranchRepo}
                 onOpenMerge={setMergeRepo}
+                token={token}
               />
             </View>
             <View style={{ flex: 1, display: tab === 'github' ? 'flex' : 'none' }}>

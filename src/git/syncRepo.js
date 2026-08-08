@@ -46,13 +46,24 @@ import { formatDateTime } from '../utils/format';
  * (head===0 && stage===0, belum pernah di-Add sama sekali) diabaikan,
  * gak dianggap alasan buat stash.
  */
-async function hasTrackedDirtyChanges(dir) {
+/** Daftar file tracked yang kotor (bukan cuma boolean) - dipakai buat
+ * scope "buang hasil stash" nanti (audit Zen, BUG-002) supaya checkout
+ * discard-nya bisa dibatasi ke file yang BENERAN disentuh stash, bukan
+ * reset seluruh working directory. */
+async function getTrackedDirtyFiles(dir) {
   const rows = await getStatusMatrixCached(dir);
-  return rows.some(([, head, workdir, stage]) => {
-    const isUntracked = head === 0 && stage === 0;
-    if (isUntracked) return false;
-    return head !== workdir || workdir !== stage;
-  });
+  return rows
+    .filter(([, head, workdir, stage]) => {
+      const isUntracked = head === 0 && stage === 0;
+      if (isUntracked) return false;
+      return head !== workdir || workdir !== stage;
+    })
+    .map(([filepath]) => filepath);
+}
+
+async function hasTrackedDirtyChanges(dir) {
+  const files = await getTrackedDirtyFiles(dir);
+  return files.length > 0;
 }
 
 /** Push biasa - padanan push(). Preflight: harus ada remote (selalu ada
@@ -138,7 +149,8 @@ export async function forcePushRepo(dir, branch, token) {
  * & sesudah pull) buat ringkasan informatif di UI (permintaan Zen #5).
  */
 export async function pullRepo(dir, branch, token, author) {
-  const wasDirty = await hasTrackedDirtyChanges(dir);
+  const stashedFiles = await getTrackedDirtyFiles(dir);
+  const wasDirty = stashedFiles.length > 0;
   const autoStashEnabled = await getSetting('autoStash');
   const stashMessage = `auto-stash-before-pull:${Date.now()}`;
 
@@ -204,7 +216,7 @@ export async function pullRepo(dir, branch, token, author) {
     await git.stash({ fs, dir, op: 'apply' });
     invalidateStatusCache(dir);
     await logActivity('Stash diterapkan balik setelah pull');
-    return { ok: true, stashApplied: true, stashKept: true, stashMessage, changedFiles };
+    return { ok: true, stashApplied: true, stashKept: true, stashMessage, changedFiles, stashedFiles };
   } catch (e) {
     await logError('Gagal apply stash setelah pull', e?.message);
     return {
@@ -213,6 +225,7 @@ export async function pullRepo(dir, branch, token, author) {
       stashKept: true,
       stashMessage,
       changedFiles,
+      stashedFiles,
       error: 'Pull berhasil, TAPI gagal menerapkan balik perubahan lokal dari stash. Perubahan kamu masih aman tersimpan di stash - buka daftar stash buat coba lagi manual.',
     };
   }
@@ -248,14 +261,25 @@ export async function confirmStashSafe(dir, stashMessage) {
  * Dipanggil kalau user bilang hasil apply-nya BERMASALAH. Buang hasil
  * 'apply' dari working directory (checkout paksa balik ke HEAD - yaitu
  * kondisi abis pull, SEBELUM stash diterapkan), TANPA nyentuh stash sama
- * sekali. Stash-nya tetap utuh di daftar buat dicoba lagi manual nanti
- * (termasuk kalau nanti ada fitur terminal, bisa "git stash pop" manual
- * dari situ - jawaban langsung buat pertanyaan Zen).
+ * sekali. Stash-nya tetap utuh di daftar buat dicoba lagi manual nanti.
+ *
+ * BUGFIX (audit Zen, BUG-002): dulu `git.checkout({force:true})` TANPA
+ * `filepaths` - reset SELURUH working directory ke HEAD, bukan cuma file
+ * yang disentuh stash. Kalau ada perubahan lain yang somehow nyangkut di
+ * antara apply dan tombol ini dipencet, ikut kebuang juga. Sekarang
+ * `filepaths` WAJIB diisi (daftar file yang ditangkap SEBELUM stash push
+ * di pullRepo() - lihat `stashedFiles` di return value-nya) - checkout
+ * di-scope cuma ke file-file itu.
  */
-export async function discardAppliedStash(dir) {
-  await git.checkout({ fs, dir, force: true });
+export async function discardAppliedStash(dir, filepaths) {
+  if (!filepaths || filepaths.length === 0) {
+    // Gak ada daftar file (mis. dipanggil dari alur lama/gak lengkap) -
+    // mending gak ngapa-ngapain daripada nebak-nebak reset semua.
+    throw new Error('Gak ada daftar file yang perlu dibalikin - tidak ada yang dilakukan (aman).');
+  }
+  await git.checkout({ fs, dir, ref: 'HEAD', force: true, filepaths });
   invalidateStatusCache(dir);
-  await logActivity('Hasil stash apply dibuang (checkout force ke HEAD) - stash tetap disimpan');
+  await logActivity(`Hasil stash apply dibuang untuk ${filepaths.length} file (scoped, bukan reset total) - stash tetap disimpan`);
 }
 
 export async function listStash(dir) {

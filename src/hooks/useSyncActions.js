@@ -73,18 +73,14 @@ export function useSyncActions(repo, token, author, onOpenWorkingTree) {
                   text: 'Ada Masalah, Buang Hasilnya',
                   style: 'cancel',
                   onPress: async () => {
-                    await discardAppliedStash(repo.dir);
-                    // BUGFIX (audit Zen, BUG-002, mitigasi sementara):
-                    // checkout force ini me-reset SELURUH working
-                    // directory ke HEAD, bukan cuma file yang disentuh
-                    // stash - kalau ada perubahan LAIN yang kamu bikin
-                    // setelah apply, itu ikut kebuang juga. Perbaikan
-                    // penuh (scoped ke file stash doang) belum
-                    // dikerjain (butuh effort lebih), makanya
-                    // peringatannya dipertegas dulu di sini.
+                    // BUGFIX (audit Zen, BUG-002) - sekarang scoped ke
+                    // file yang beneran ditangkap sebelum stash push
+                    // (res.stashedFiles), BUKAN reset seluruh working
+                    // directory lagi.
+                    await discardAppliedStash(repo.dir, res.stashedFiles);
                     appAlert(
                       'Dibatalkan',
-                      'Working directory di-reset total ke kondisi abis pull - BUKAN cuma yang dari stash. Kalau kamu sempat ngedit file lain setelah apply tadi, itu ikut hilang. Perubahan lokal aslinya tetap aman tersimpan di stash, coba lagi nanti.'
+                      `${res.stashedFiles.length} file dikembalikan ke kondisi abis pull. Perubahan lain yang gak disentuh stash TIDAK ikut kesentuh. Perubahan lokal aslinya tetap aman tersimpan di stash, coba lagi nanti.`
                     );
                   },
                 },
